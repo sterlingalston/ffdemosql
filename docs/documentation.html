@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiserv Demo Financial Services Database Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .nav {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .nav h2 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+        }
+
+        .nav ul {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+        }
+
+        .nav a {
+            color: #2a5298;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+            display: block;
+        }
+
+        .nav a:hover {
+            background-color: #e3f2fd;
+        }
+
+        .section {
+            background: white;
+            margin-bottom: 30px;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: #1e3c72;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e3f2fd;
+        }
+
+        h3 {
+            color: #2a5298;
+            font-size: 1.4em;
+            margin: 25px 0 15px 0;
+        }
+
+        h4 {
+            color: #1565c0;
+            font-size: 1.2em;
+            margin: 20px 0 10px 0;
+        }
+
+        .table-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #2a5298;
+        }
+
+        .fields-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+        }
+
+        .fields-table th,
+        .fields-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+
+        .fields-table th {
+            background: #2a5298;
+            color: white;
+            font-weight: 600;
+        }
+
+        .fields-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .constraint {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #ffc107;
+        }
+
+        .relationship {
+            background: #d1ecf1;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .schema-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .schema-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .schema-card h4 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+        }
+
+        .schema-card ul {
+            list-style-type: disc;
+            margin-left: 20px;
+        }
+
+        .code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .warning {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border-left: 4px solid #dc3545;
+        }
+
+        .info {
+            background: #cce7ff;
+            color: #004085;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Fiserv Demo Financial Services Database</h1>
+            <p class="subtitle">Complete SQL Server Schema Documentation</p>
+        </header>
+
+        <nav class="nav">
+            <h2>Table of Contents</h2>
+            <ul>
+                <li><a href="#overview">Database Overview</a></li>
+                <li><a href="#core">CORE Schema</a></li>
+                <li><a href="#payments">PAYMENTS Schema</a></li>
+                <li><a href="#cards">CARDS Schema</a></li>
+                <li><a href="#digital">DIGITAL Schema</a></li>
+                <li><a href="#risk">RISK Schema</a></li>
+                <li><a href="#compliance">COMPLIANCE Schema</a></li>
+                <li><a href="#analytics">ANALYTICS Schema</a></li>
+            </ul>
+        </nav>
+
+        <section id="overview" class="section">
+            <h2>Database Overview</h2>
+            
+            <div class="info">
+                <strong>Purpose:</strong> This database represents a comprehensive financial technology infrastructure similar to Fiserv's platform, designed for educational and demonstration purposes. It supports core banking, payment processing, card services, digital banking, risk management, compliance, and analytics.
+            </div>
+
+            <div class="warning">
+                <strong>Important:</strong> This is educational demo data only and not based on actual Fiserv systems. All data is fictional and should not be used in production environments.
+            </div>
+
+            <h3>Schema Architecture</h3>
+            <div class="schema-overview">
+                <div class="schema-card">
+                    <h4>CORE</h4>
+                    <p>Foundation layer containing financial institutions, customers, accounts, and product definitions.</p>
+                    <ul>
+                        <li>Financial Institutions</li>
+                        <li>Customers</li>
+                        <li>Product Types</li>
+                        <li>Accounts</li>
+                    </ul>
+                </div>
+
+                <div class="schema-card">
+                    <h4>PAYMENTS</h4>
+                    <p>Payment processing infrastructure including networks and transaction management.</p>
+                    <ul>
+                        <li>Payment Networks</li>
+                        <li>Transactions</li>
+                    </ul>
+                </div>
+
+                <div class="schema-card">
+                    <h4>CARDS</h4>
+                    <p>Card services including programs, card accounts, and transaction processing.</p>
+                    <ul>
+                        <li>Card Programs</li>
+                        <li>Card Accounts</li>
+                        <li>Card Transactions</li>
+                    </ul>
+                </div>
+
+                <div class="schema-card">
+                    <h4>DIGITAL</h4>
+                    <p>Digital banking platform including user management and online services.</p>
+                    <ul>
+                        <li>Digital Users</li>
+                        <li>User Sessions</li>
+                        <li>Bill Pay Payees</li>
+                    </ul>
+                </div>
+
+                <div class="schema-card">
+                    <h4>RISK</h4>
+                    <p>Risk management and fraud detection systems.</p>
+                    <ul>
+                        <li>Risk Rules</li>
+                        <li>Risk Events</li>
+                    </ul>
+                </div>
+
+                <div class="schema-card">
+                    <h4>COMPLIANCE</h4>
+                    <p>Regulatory compliance and reporting systems.</p>
+                    <ul>
+                        <li>Regulatory Reports</li>
+                        <li>Sanctions Screening</li>
+                    </ul>
+                </div>
+
+                <div class="schema-card">
+                    <h4>ANALYTICS</h4>
+                    <p>Business intelligence and metrics tracking.</p>
+                    <ul>
+                        <li>Daily Metrics</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="core" class="section">
+            <h2>CORE Schema</h2>
+            <p>The core schema contains fundamental entities that support all banking operations.</p>
+
+            <h3>FINANCIAL_INSTITUTIONS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Stores information about banks, credit unions, and other financial institutions that use the platform.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Field Name</th>
+                        <th>Data Type</th>
+                        <th>Constraints</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>INSTITUTION_ID</td>
+                        <td>INT IDENTITY</td>
+                        <td>Primary Key</td>
+                        <td>Unique identifier for each institution</td>
+                    </tr>
+                    <tr>
+                        <td>INSTITUTION_CODE</td>
+                        <td>VARCHAR(20)</td>
+                        <td>NOT NULL, UNIQUE</td>
+                        <td>Short code identifier</td>
+                    </tr>
+                    <tr>
+                        <td>INSTITUTION_NAME</td>
+                        <td>VARCHAR(200)</td>
+                        <td>NOT NULL</td>
+                        <td>Full institution name</td>
+                    </tr>
+                    <tr>
+                        <td>ROUTING_NUMBER</td>
+                        <td>VARCHAR(9)</td>
+                        <td>NOT NULL, UNIQUE</td>
+                        <td>ABA routing number</td>
+                    </tr>
+                    <tr>
+                        <td>SWIFT_CODE</td>
+                        <td>VARCHAR(11)</td>
+                        <td>NULL</td>
+                        <td>International SWIFT code</td>
+                    </tr>
+                    <tr>
+                        <td>REGULATION_LEVEL</td>
+                        <td>VARCHAR(50)</td>
+                        <td>NOT NULL</td>
+                        <td>Regulatory authority (FDIC, NCUA, OCC)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>CUSTOMERS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Stores customer information for both personal and business accounts.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Field Name</th>
+                        <th>Data Type</th>
+                        <th>Constraints</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>CUSTOMER_ID</td>
+                        <td>INT IDENTITY</td>
+                        <td>Primary Key</td>
+                        <td>Unique customer identifier</td>
+                    </tr>
+                    <tr>
+                        <td>INSTITUTION_ID</td>
+                        <td>INT</td>
+                        <td>Foreign Key</td>
+                        <td>References FINANCIAL_INSTITUTIONS</td>
+                    </tr>
+                    <tr>
+                        <td>CUSTOMER_TYPE</td>
+                        <td>VARCHAR(20)</td>
+                        <td>NOT NULL</td>
+                        <td>Personal or Business</td>
+                    </tr>
+                    <tr>
+                        <td>SSN_ENCRYPTED</td>
+                        <td>VARBINARY(256)</td>
+                        <td>NULL</td>
+                        <td>Encrypted Social Security Number</td>
+                    </tr>
+                    <tr>
+                        <td>CREDIT_SCORE</td>
+                        <td>INT</td>
+                        <td>NULL</td>
+                        <td>Credit score (300-850)</td>
+                    </tr>
+                    <tr>
+                        <td>KYC_STATUS</td>
+                        <td>VARCHAR(20)</td>
+                        <td>Default 'Pending'</td>
+                        <td>Know Your Customer status</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="constraint">
+                <strong>Unique Constraint:</strong> (INSTITUTION_ID, CUSTOMER_NUMBER) - Ensures customer numbers are unique within each institution.
+            </div>
+
+            <h3>PRODUCT_TYPES</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Defines banking products and their characteristics.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Field Name</th>
+                        <th>Data Type</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>PRODUCT_CODE</td>
+                        <td>VARCHAR(20)</td>
+                        <td>Unique product identifier</td>
+                    </tr>
+                    <tr>
+                        <td>PRODUCT_CATEGORY</td>
+                        <td>VARCHAR(50)</td>
+                        <td>Checking, Savings, Certificate, Credit, Business</td>
+                    </tr>
+                    <tr>
+                        <td>INTEREST_RATE</td>
+                        <td>DECIMAL(5,4)</td>
+                        <td>Annual percentage rate</td>
+                    </tr>
+                    <tr>
+                        <td>MINIMUM_BALANCE</td>
+                        <td>DECIMAL(12,2)</td>
+                        <td>Required minimum balance</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>ACCOUNTS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Customer account instances with current balances and status.
+            </div>
+
+            <div class="relationship">
+                <strong>Key Relationships:</strong>
+                <ul>
+                    <li>Each account belongs to one customer</li>
+                    <li>Each account is of one product type</li>
+                    <li>Customers can have multiple accounts</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="payments" class="section">
+            <h2>PAYMENTS Schema</h2>
+            <p>Manages payment processing networks and transaction handling.</p>
+
+            <h3>PAYMENT_NETWORKS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Defines available payment networks and their characteristics.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Network Type</th>
+                        <th>Settlement Time</th>
+                        <th>Typical Use Case</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ACH</td>
+                        <td>1-3 Business Days</td>
+                        <td>Payroll, bill pay, transfers</td>
+                    </tr>
+                    <tr>
+                        <td>Wire Transfer</td>
+                        <td>Same Day</td>
+                        <td>Large transactions, real estate</td>
+                    </tr>
+                    <tr>
+                        <td>RTP</td>
+                        <td>Real Time</td>
+                        <td>Instant payments, emergencies</td>
+                    </tr>
+                    <tr>
+                        <td>P2P Transfer</td>
+                        <td>Real Time</td>
+                        <td>Person-to-person payments</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>TRANSACTIONS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Records all payment transactions across the platform.
+            </div>
+
+            <div class="constraint">
+                <strong>Business Rules:</strong>
+                <ul>
+                    <li>Either DEBIT_ACCOUNT_ID or CREDIT_ACCOUNT_ID must be internal to the institution</li>
+                    <li>External accounts require routing number and bank name</li>
+                    <li>All transactions require risk scoring</li>
+                    <li>Status progression: Pending → Processing → Completed/Failed</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="cards" class="section">
+            <h2>CARDS Schema</h2>
+            <p>Comprehensive card services including debit and credit card management.</p>
+
+            <h3>CARD_PROGRAMS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Defines card program templates with features and fees.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Card Type</th>
+                        <th>Network</th>
+                        <th>Features</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Debit</td>
+                        <td>Visa/MasterCard</td>
+                        <td>Direct account access, no credit limit</td>
+                    </tr>
+                    <tr>
+                        <td>Credit</td>
+                        <td>Visa/MasterCard/Amex</td>
+                        <td>Credit line, rewards, interest charges</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>CARD_ACCOUNTS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Individual card instances issued to customers.
+            </div>
+
+            <div class="warning">
+                <strong>Security Note:</strong> Card numbers and CVV codes are stored encrypted. Only masked versions are used for display purposes.
+            </div>
+
+            <h3>CARD_TRANSACTIONS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Records all card-based transactions including purchases, payments, and cash advances.
+            </div>
+
+            <div class="relationship">
+                <strong>Transaction Flow:</strong>
+                <ol>
+                    <li>Authorization received from network</li>
+                    <li>Risk scoring and fraud detection</li>
+                    <li>Transaction posting to account</li>
+                    <li>Rewards calculation (if applicable)</li>
+                </ol>
+            </div>
+        </section>
+
+        <section id="digital" class="section">
+            <h2>DIGITAL Schema</h2>
+            <p>Digital banking platform supporting online and mobile banking services.</p>
+
+            <h3>DIGITAL_USERS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Digital banking user accounts with authentication and preferences.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Security Feature</th>
+                        <th>Implementation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Password Storage</td>
+                        <td>Encrypted hash (VARBINARY)</td>
+                    </tr>
+                    <tr>
+                        <td>Account Lockout</td>
+                        <td>Configurable attempt limits</td>
+                    </tr>
+                    <tr>
+                        <td>Two-Factor Auth</td>
+                        <td>SMS or email verification</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>USER_SESSIONS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Tracks active user sessions for security and analytics.
+            </div>
+
+            <h3>BILL_PAY_PAYEES</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Customer-defined payees for bill payment services.
+            </div>
+        </section>
+
+        <section id="risk" class="section">
+            <h2>RISK Schema</h2>
+            <p>Risk management and fraud detection systems.</p>
+
+            <h3>RISK_RULES</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Configurable rules for detecting suspicious activity.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Rule Type</th>
+                        <th>Description</th>
+                        <th>Typical Threshold</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Transaction</td>
+                        <td>Large or unusual amounts</td>
+                        <td>$10,000+</td>
+                    </tr>
+                    <tr>
+                        <td>Velocity</td>
+                        <td>Too many transactions quickly</td>
+                        <td>5+ in 1 hour</td>
+                    </tr>
+                    <tr>
+                        <td>Location</td>
+                        <td>Unusual geographic patterns</td>
+                        <td>500+ miles from normal</td>
+                    </tr>
+                    <tr>
+                        <td>Authentication</td>
+                        <td>Failed login attempts</td>
+                        <td>3+ failures</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>RISK_EVENTS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Records triggered risk events for investigation and resolution.
+            </div>
+
+            <div class="constraint">
+                <strong>Event Lifecycle:</strong> Open → Under Review → Resolved/Escalated
+            </div>
+        </section>
+
+        <section id="compliance" class="section">
+            <h2>COMPLIANCE Schema</h2>
+            <p>Regulatory compliance and reporting infrastructure.</p>
+
+            <h3>REGULATORY_REPORTS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Tracks regulatory report generation and submission.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Report Type</th>
+                        <th>Regulator</th>
+                        <th>Frequency</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Call Report</td>
+                        <td>FDIC</td>
+                        <td>Quarterly</td>
+                    </tr>
+                    <tr>
+                        <td>NCUA 5300</td>
+                        <td>NCUA</td>
+                        <td>Quarterly</td>
+                    </tr>
+                    <tr>
+                        <td>BSA/AML Report</td>
+                        <td>FinCEN</td>
+                        <td>As needed</td>
+                    </tr>
+                    <tr>
+                        <td>CRA Report</td>
+                        <td>FDIC/OCC</td>
+                        <td>Annual</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>SANCTIONS_SCREENING</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> OFAC and sanctions list screening for compliance.
+            </div>
+
+            <div class="info">
+                <strong>Screening Process:</strong> All customers and transactions are automatically screened against OFAC SDN, Non-SDN, and other sanctions lists. Match scores above thresholds require manual review.
+            </div>
+        </section>
+
+        <section id="analytics" class="section">
+            <h2>ANALYTICS Schema</h2>
+            <p>Business intelligence and performance metrics.</p>
+
+            <h3>DAILY_METRICS</h3>
+            <div class="table-info">
+                <strong>Purpose:</strong> Daily aggregated metrics for business intelligence and monitoring.
+            </div>
+
+            <table class="fields-table">
+                <thead>
+                    <tr>
+                        <th>Metric Category</th>
+                        <th>Key Indicators</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Transaction Volume</td>
+                        <td>Count, dollar volume, average size</td>
+                    </tr>
+                    <tr>
+                        <td>Customer Growth</td>
+                        <td>Total customers, new acquisitions</td>
+                    </tr>
+                    <tr>
+                        <td>Digital Adoption</td>
+                        <td>Active digital users, engagement</td>
+                    </tr>
+                    <tr>
+                        <td>Risk Management</td>
+                        <td>Fraud detection, loss amounts</td>
+                    </tr>
+                    <tr>
+                        <td>System Performance</td>
+                        <td>Uptime, compliance alerts</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="constraint">
+                <strong>Data Aggregation:</strong> Metrics are calculated nightly from operational data and stored for fast reporting and dashboard generation.
+            </div>
+        </section>
+
+        <footer style="text-align: center; padding: 40px; color: #666; border-top: 1px solid #ddd; margin-top: 40px;">
+            <p><strong>Fiserv Demo Financial Services Database</strong></p>
+            <p>Educational demonstration schema - Not for production use</p>
+            <p>Generated: <script>document.write(new Date().toLocaleDateString())</script></p>
+        </footer>
+    </div>
+</body>
+</html>
