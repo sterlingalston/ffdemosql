@@ -1,0 +1,408 @@
+-- =============================================================================
+-- TRUNCATE ALL TABLES IN DATABASE
+-- 
+-- WARNING: This procedure will DELETE ALL DATA from tables!
+-- Always run with DRY_RUN = TRUE first to verify which tables will be affected.
+-- 
+-- Features:
+-- - Dry run mode to preview operations
+-- - Schema and table filtering
+-- - Exclude specific tables/patterns
+-- - Error handling and reporting
+-- - Row count tracking before truncation
+-- =============================================================================
+
+CREATE OR REPLACE PROCEDURE TRUNCATE_ALL_TABLES_IN_DATABASE(
+    TARGET_DATABASE STRING,
+    SCHEMA_FILTER STRING DEFAULT '%',
+    TABLE_FILTER STRING DEFAULT '%',
+    EXCLUDE_TABLES STRING DEFAULT '', -- Comma-separated list of tables to exclude
+    CONFIRM_TRUNCATE STRING DEFAULT 'NO', -- Must be 'YES' to actually truncate
+    DRY_RUN BOOLEAN DEFAULT TRUE
+)
+RETURNS VARIANT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.9'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'main'
+AS
+$$
+def main(session, target_database, schema_filter, table_filter, exclude_tables, confirm_truncate, dry_run):
+    """
+    Truncate all tables in the specified database.
+    
+    DANGER: This will delete all data from tables!
+    """
+    try:
+        results = {
+            'target_database': target_database,
+            'schema_filter': schema_filter,
+            'table_filter': table_filter,
+            'exclude_tables': exclude_tables,
+            'total_tables_found': 0,
+            'tables_truncated': 0,
+            'tables_skipped': 0,
+            'total_rows_deleted': 0,
+            'truncation_results': [],
+            'errors': [],
+            'dry_run': dry_run,
+            'confirmed': confirm_truncate.upper() == 'YES'
+        }
+        
+        # Safety check - require explicit confirmation for actual truncation
+        if not dry_run and confirm_truncate.upper() != 'YES':
+            return {
+                'error': 'SAFETY CHECK FAILED: To actually truncate tables, set CONFIRM_TRUNCATE = \'YES\'',
+                'message': 'This is a safety feature to prevent accidental data loss.',
+                'target_database': target_database
+            }
+        
+        # Parse excluded tables
+        excluded_table_list = []
+        if exclude_tables.strip():
+            excluded_table_list = [table.strip().upper() for table in exclude_tables.split(',')]
+        
+        # Get all tables in the database
+        tables_to_process = get_tables_for_truncation(
+            session, 
+            target_database, 
+            schema_filter, 
+            table_filter, 
+            excluded_table_list
+        )
+        
+        results['total_tables_found'] = len(tables_to_process)
+        
+        if not tables_to_process:
+            results['message'] = 'No tables found matching the specified criteria.'
+            return results
+        
+        # Process each table
+        for table_info in tables_to_process:
+            schema_name = table_info['schema']
+            table_name = table_info['table']
+            
+            try:
+                table_result = truncate_single_table(
+                    session,
+                    target_database,
+                    schema_name,
+                    table_name,
+                    dry_run
+                )
+                
+                if table_result['success']:
+                    if not dry_run:
+                        results['tables_truncated'] += 1
+                        results['total_rows_deleted'] += table_result['rows_before_truncate'] if 'rows_before_truncate' in table_result else 0
+                    results['truncation_results'].append(table_result)
+                else:
+                    results['tables_skipped'] += 1
+                    results['errors'].append({
+                        'table': f"{schema_name}.{table_name}",
+                        'error': table_result['error'] if 'error' in table_result else 'Unknown error'
+                    })
+                    
+            except Exception as table_error:
+                results['tables_skipped'] += 1
+                results['errors'].append({
+                    'table': f"{schema_name}.{table_name}",
+                    'error': str(table_error)
+                })
+        
+        # Add summary message
+        if dry_run:
+            results['message'] = f"DRY RUN: Found {results['total_tables_found']} tables that would be truncated."
+        else:
+            results['message'] = f"COMPLETED: Truncated {results['tables_truncated']} tables, deleted {results['total_rows_deleted']} total rows."
+        
+        return results
+        
+    except Exception as e:
+        return {
+            'error': f"Fatal error: {str(e)}",
+            'target_database': target_database
+        }
+
+def get_tables_for_truncation(session, database, schema_filter, table_filter, excluded_tables):
+    """
+    Get list of tables to truncate based on filters.
+    """
+    # Get all base tables in the database
+    tables_query = f"""
+    SELECT 
+        TABLE_SCHEMA,
+        TABLE_NAME
+    FROM {database}.INFORMATION_SCHEMA.TABLES 
+    WHERE TABLE_TYPE = 'BASE TABLE'
+      AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+      AND TABLE_SCHEMA ILIKE '{schema_filter}'
+      AND TABLE_NAME ILIKE '{table_filter}'
+    ORDER BY TABLE_SCHEMA, TABLE_NAME
+    """
+    
+    tables_df = session.sql(tables_query)
+    all_tables = tables_df.collect()
+    
+    # Filter out excluded tables
+    filtered_tables = []
+    for table_row in all_tables:
+        schema = table_row['TABLE_SCHEMA']
+        table = table_row['TABLE_NAME']
+        
+        # Check if table should be excluded
+        table_full_name = f"{schema}.{table}".upper()
+        table_name_only = table.upper()
+        
+        excluded = False
+        for excluded_pattern in excluded_tables:
+            if (excluded_pattern in table_full_name or 
+                excluded_pattern in table_name_only or
+                excluded_pattern == table_name_only):
+                excluded = True
+                break
+        
+        if not excluded:
+            filtered_tables.append({
+                'schema': schema,
+                'table': table,
+                'estimated_rows': 0  # We'll get actual count when needed
+            })
+    
+    return filtered_tables
+
+def get_table_row_count(session, database, schema, table):
+    """
+    Get actual row count for a table before truncation.
+    """
+    try:
+        count_query = f"SELECT COUNT(*) as ROW_COUNT FROM {database}.{schema}.{table}"
+        result = session.sql(count_query).collect()
+        return result[0]['ROW_COUNT'] if result else 0
+    except:
+        return 0
+
+def truncate_single_table(session, database, schema, table, dry_run):
+    """
+    Truncate a single table.
+    """
+    try:
+        full_table_name = f"{database}.{schema}.{table}"
+        
+        # Get row count before truncation
+        rows_before = get_table_row_count(session, database, schema, table)
+        
+        if dry_run:
+            return {
+                'success': True,
+                'table': f"{schema}.{table}",
+                'full_table_name': full_table_name,
+                'rows_before_truncate': rows_before,
+                'action': 'WOULD TRUNCATE',
+                'dry_run': True
+            }
+        
+        # Perform the actual truncation
+        truncate_sql = f"TRUNCATE TABLE {full_table_name}"
+        session.sql(truncate_sql).collect()
+        
+        return {
+            'success': True,
+            'table': f"{schema}.{table}",
+            'full_table_name': full_table_name,
+            'rows_before_truncate': rows_before,
+            'action': 'TRUNCATED',
+            'truncate_executed': True
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'table': f"{schema}.{table}",
+            'full_table_name': f"{database}.{schema}.{table}"
+        }
+$$;
+
+-- =============================================================================
+-- SAFER VERSION - TRUNCATE SPECIFIC SCHEMA ONLY
+-- =============================================================================
+
+CREATE OR REPLACE PROCEDURE TRUNCATE_SCHEMA_TABLES(
+    TARGET_DATABASE STRING,
+    SCHEMA_NAME STRING,
+    TABLE_FILTER STRING DEFAULT '%',
+    EXCLUDE_TABLES STRING DEFAULT '',
+    CONFIRM_TRUNCATE STRING DEFAULT 'NO',
+    DRY_RUN BOOLEAN DEFAULT TRUE
+)
+RETURNS VARIANT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.9'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'main'
+AS
+$$
+def main(session, target_database, schema_name, table_filter, exclude_tables, confirm_truncate, dry_run):
+    """
+    Truncate tables in a specific schema only.
+    Safer than truncating entire database.
+    """
+    try:
+        # Safety check
+        if not dry_run and confirm_truncate.upper() != 'YES':
+            return {
+                'error': 'SAFETY CHECK FAILED: To actually truncate tables, set CONFIRM_TRUNCATE = \'YES\'',
+                'message': 'This is a safety feature to prevent accidental data loss.',
+                'target_database': target_database,
+                'schema_name': schema_name
+            }
+        
+        # Parse excluded tables
+        excluded_table_list = []
+        if exclude_tables.strip():
+            excluded_table_list = [table.strip().upper() for table in exclude_tables.split(',')]
+        
+        # Get tables in the specific schema
+        tables_query = f"""
+        SELECT 
+            TABLE_SCHEMA,
+            TABLE_NAME
+        FROM {target_database}.INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_TYPE = 'BASE TABLE'
+          AND TABLE_SCHEMA = '{schema_name}'
+          AND TABLE_NAME ILIKE '{table_filter}'
+        ORDER BY TABLE_NAME
+        """
+        
+        tables_df = session.sql(tables_query)
+        all_tables = tables_df.collect()
+        
+        # Filter excluded tables
+        tables_to_process = []
+        for table_row in all_tables:
+            table = table_row['TABLE_NAME']
+            if table.upper() not in excluded_table_list:
+                tables_to_process.append({
+                    'schema': schema_name,
+                    'table': table,
+                    'estimated_rows': 0  # We'll get actual count when processing
+                })
+        
+        results = {
+            'target_database': target_database,
+            'schema_name': schema_name,
+            'table_filter': table_filter,
+            'total_tables_found': len(tables_to_process),
+            'tables_truncated': 0,
+            'total_rows_deleted': 0,
+            'truncation_results': [],
+            'errors': [],
+            'dry_run': dry_run
+        }
+        
+        # Process each table
+        for table_info in tables_to_process:
+            try:
+                full_table_name = f"{target_database}.{schema_name}.{table_info['table']}"
+                
+                # Get actual row count
+                try:
+                    count_query = f"SELECT COUNT(*) as ROW_COUNT FROM {full_table_name}"
+                    count_result = session.sql(count_query).collect()
+                    actual_rows = count_result[0]['ROW_COUNT'] if count_result and len(count_result) > 0 else 0
+                except:
+                    actual_rows = 0
+                
+                if dry_run:
+                    results['truncation_results'].append({
+                        'table': table_info['table'],
+                        'estimated_rows': actual_rows,
+                        'action': 'WOULD TRUNCATE'
+                    })
+                else:
+                    # Perform truncation
+                    truncate_sql = f"TRUNCATE TABLE {full_table_name}"
+                    session.sql(truncate_sql).collect()
+                    
+                    results['tables_truncated'] += 1
+                    results['total_rows_deleted'] += actual_rows
+                    results['truncation_results'].append({
+                        'table': table_info['table'],
+                        'rows_deleted': actual_rows,
+                        'action': 'TRUNCATED'
+                    })
+                    
+            except Exception as table_error:
+                results['errors'].append({
+                    'table': table_info['table'],
+                    'error': str(table_error)
+                })
+        
+        return results
+        
+    except Exception as e:
+        return {
+            'error': f"Fatal error: {str(e)}",
+            'target_database': target_database,
+            'schema_name': schema_name
+        }
+$$;
+
+-- =============================================================================
+-- USAGE EXAMPLES
+-- =============================================================================
+
+-- ALWAYS START WITH DRY RUN to see what will be affected!
+
+-- Example 1: Dry run to see all tables that would be truncated
+CALL TRUNCATE_ALL_TABLES_IN_DATABASE('DB_FF_DEMO', '%', '%', '', 'YES', FALSE);
+
+-- Example 2: Truncate all tables in a specific schema (dry run first)
+CALL TRUNCATE_SCHEMA_TABLES('DB_FF_DEMO', 'STAGING', '%', '', 'NO', TRUE);
+
+-- Example 3: Truncate with exclusions (dry run)
+CALL TRUNCATE_ALL_TABLES_IN_DATABASE(
+    'DB_FF_DEMO',           -- database
+    '%',                    -- all schemas
+    '%',                    -- all tables
+    'AUDIT_LOG,USER_SESSIONS,IMPORTANT_TABLE',  -- exclude these tables
+    'NO',                   -- not confirmed yet
+    TRUE                    -- dry run
+);
+
+-- Example 4: ACTUAL TRUNCATION (after reviewing dry run results)
+-- WARNING: This will delete all data!
+CALL TRUNCATE_SCHEMA_TABLES(
+    'DB_FF_DEMO',           -- database
+    'STAGING',              -- specific schema only
+    '%',                    -- all tables in schema
+    'KEEP_THIS_TABLE',      -- exclude this table
+    'YES',                  -- CONFIRM truncation
+    FALSE                   -- NOT a dry run - WILL DELETE DATA!
+);
+
+-- =============================================================================
+-- VERIFICATION QUERIES
+-- =============================================================================
+
+-- Check table row counts before truncation
+SELECT 
+    TABLE_SCHEMA,
+    TABLE_NAME,
+    ROW_COUNT
+FROM DB_FF_DEMO.INFORMATION_SCHEMA.TABLES 
+WHERE TABLE_TYPE = 'BASE TABLE'
+  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
+
+-- Verify all tables are empty after truncation
+SELECT 
+    TABLE_SCHEMA,
+    TABLE_NAME,
+    ROW_COUNT
+FROM DB_FF_DEMO.INFORMATION_SCHEMA.TABLES 
+WHERE TABLE_TYPE = 'BASE TABLE'
+  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+  AND ROW_COUNT > 0
+ORDER BY ROW_COUNT DESC;

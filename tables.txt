@@ -1,0 +1,39 @@
+-- Create the main marketing data table
+CREATE TABLE [raw].[MarketingData] (
+    [Age] INT NOT NULL,
+    [Job] VARCHAR(50) NULL,
+    [Marital] VARCHAR(20) NULL,
+    [Education] VARCHAR(20) NULL,
+    [HasDefault] VARCHAR(10) NULL,  -- Renamed from 'default' (reserved keyword)
+    [Balance] INT NULL,
+    [HasHousing] VARCHAR(10) NULL,  -- Renamed for clarity
+    [HasLoan] VARCHAR(10) NULL,     -- Renamed for clarity
+    [Contact] VARCHAR(20) NULL,
+    [ContactDay] INT NULL,          -- Renamed for clarity
+    [ContactMonth] VARCHAR(10) NULL,
+    [Duration] INT NULL,
+    [Campaign] INT NULL,
+    [Pdays] INT NULL,
+    [Previous] INT NULL,
+    [PreviousOutcome] VARCHAR(20) NULL,  -- Renamed for clarity
+    [y] VARCHAR(10) NULL,      -- Renamed from 'y' for clarity
+    
+);
+
+CREATE TABLE [raw].[TransactionData] (
+    [TransactionId] VARCHAR(20) NOT NULL,  -- External transaction identifier
+    [SenderAccountId] VARCHAR(20) NOT NULL,
+    [ReceiverAccountId] VARCHAR(20) NOT NULL,
+    [TransactionAmount] DECIMAL(12,2) NOT NULL,  -- Supports up to $9,999,999,999.99
+    [TransactionType] VARCHAR(20) NOT NULL,
+    [TransactionTimestamp] DATETIME2(3) NOT NULL,  -- Millisecond precision
+    [TransactionStatus] VARCHAR(20) NOT NULL,
+    [FraudFlag] BIT NOT NULL,
+    [Geolocation] VARCHAR(50) NULL,
+    [DeviceUsed] VARCHAR(20) NULL,
+    [NetworkSliceId] VARCHAR(20) NULL,
+    [LatencyMs] INT NULL,
+    [SliceBandwidthMbps] INT NULL,
+    [PinCodeHash] VARBINARY(64) NULL,  -- Store hashed PIN for security
+    [PinCodeEncrypted] VARBINARY(128) NULL,  -- Encrypted PIN (if needed)
+	);

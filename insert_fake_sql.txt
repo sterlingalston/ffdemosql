@@ -1,0 +1,494 @@
+-- =============================================================================
+-- INSERT SAMPLE DATA FOR FISERV FINANCIAL SERVICES DATABASE - VERSION 2
+-- Fresh sample data with different institutions, customers, and scenarios
+-- Safe insert with existence checks to avoid duplicate key violations
+-- =============================================================================
+
+-- =============================================================================
+-- CORE SCHEMA - Insert in dependency order
+-- =============================================================================
+
+-- Insert Financial Institutions (Parent table) - Check for existence first
+IF NOT EXISTS (SELECT 1 FROM CORE.FINANCIAL_INSTITUTIONS WHERE INSTITUTION_CODE = 'SUNNYBANK')
+BEGIN
+    INSERT INTO CORE.FINANCIAL_INSTITUTIONS (
+        INSTITUTION_CODE, INSTITUTION_NAME, INSTITUTION_TYPE, ROUTING_NUMBER, 
+        SWIFT_CODE, ADDRESS, CITY, STATE, ZIP_CODE, REGULATION_LEVEL, 
+        ASSETS_UNDER_MANAGEMENT, CUSTOMER_COUNT, PLATFORM_ONBOARD_DATE
+    ) VALUES 
+    ('SUNNYBANK', 'Sunny State Bank', 'Bank', '456789123', 'SSBKUS66', 
+     '200 Sunshine Blvd', 'Miami', 'FL', '33101', 'State', 
+     3200000000.00, 18500, '2021-05-10'),
+    ('NORTHCU', 'Northern Credit Union', 'Credit Union', '789123456', NULL, 
+     '150 Pine Ridge Dr', 'Portland', 'OR', '97201', 'Credit Union', 
+     890000000.00, 8500, '2020-09-15'),
+    ('DIGITALFIRST', 'Digital First Bank', 'Fintech', '321654987', 'DIGIUS77', 
+     '500 Innovation Way', 'Austin', 'TX', '78701', 'Federal', 
+     1800000000.00, 14200, '2022-02-28');
+    PRINT 'Inserted Financial Institutions';
+END
+ELSE
+    PRINT 'Financial Institutions already exist, skipping...';
+
+-- Insert Product Types
+IF NOT EXISTS (SELECT 1 FROM CORE.PRODUCT_TYPES WHERE PRODUCT_CODE = 'CHK100')
+BEGIN
+    INSERT INTO CORE.PRODUCT_TYPES (
+        PRODUCT_CODE, PRODUCT_NAME, PRODUCT_CATEGORY, INTEREST_RATE, 
+        MINIMUM_BALANCE, MONTHLY_FEE, OVERDRAFT_FEE
+    ) VALUES 
+    ('CHK100', 'Premium Checking', 'Checking', 0.0150, 500.00, 15.00, 38.00),
+    ('SAV100', 'High-Yield Savings', 'Savings', 0.0425, 250.00, 0.00, NULL),
+    ('CC100', 'Platinum Credit Card', 'Credit Card', 0.1699, 0.00, 99.00, NULL),
+    ('LON100', 'Auto Loan', 'Loan', 0.0549, 0.00, 0.00, NULL),
+    ('CD100', '18-Month CD', 'Certificate', 0.0475, 2500.00, 0.00, NULL);
+    PRINT 'Inserted Product Types';
+END
+ELSE
+    PRINT 'Product Types already exist, skipping...';
+
+-- Get Institution IDs for reference
+DECLARE @SunnyBankID INT = (SELECT TOP 1 INSTITUTION_ID FROM CORE.FINANCIAL_INSTITUTIONS WHERE INSTITUTION_CODE = 'SUNNYBANK');
+DECLARE @NorthCUID INT = (SELECT TOP 1 INSTITUTION_ID FROM CORE.FINANCIAL_INSTITUTIONS WHERE INSTITUTION_CODE = 'NORTHCU');
+DECLARE @DigitalFirstID INT = (SELECT TOP 1 INSTITUTION_ID FROM CORE.FINANCIAL_INSTITUTIONS WHERE INSTITUTION_CODE = 'DIGITALFIRST');
+
+-- Get Product Type IDs for reference
+DECLARE @CheckingID INT = (SELECT TOP 1 PRODUCT_TYPE_ID FROM CORE.PRODUCT_TYPES WHERE PRODUCT_CODE = 'CHK100');
+DECLARE @SavingsID INT = (SELECT TOP 1 PRODUCT_TYPE_ID FROM CORE.PRODUCT_TYPES WHERE PRODUCT_CODE = 'SAV100');
+DECLARE @CreditCardID INT = (SELECT TOP 1 PRODUCT_TYPE_ID FROM CORE.PRODUCT_TYPES WHERE PRODUCT_CODE = 'CC100');
+
+-- Insert Customers
+IF NOT EXISTS (SELECT 1 FROM CORE.CUSTOMERS WHERE INSTITUTION_ID = @SunnyBankID AND CUSTOMER_NUMBER = 'CUST00001001')
+BEGIN
+    INSERT INTO CORE.CUSTOMERS (
+        INSTITUTION_ID, CUSTOMER_NUMBER, CUSTOMER_TYPE, FIRST_NAME, LAST_NAME, 
+        EMAIL, PHONE, ADDRESS, CITY, STATE, ZIP_CODE, CREDIT_SCORE, 
+        RISK_RATING, KYC_STATUS, CUSTOMER_SINCE, SSN_ENCRYPTED
+    ) VALUES 
+    (@SunnyBankID, 'CUST00001001', 'Individual', 'Maria', 'Garcia', 'maria.garcia@email.com', 
+     '786-555-0123', '450 Ocean Drive', 'Miami', 'FL', '33139', 785, 
+     'Low', 'Verified', '2023-03-10', 0xFEDCBA9876543210FEDCBA9876543210),
+    (@SunnyBankID, 'CUST00001002', 'Individual', 'David', 'Chen', 'david.chen@email.com', 
+     '305-555-0234', '876 Bay Harbor Dr', 'Miami Beach', 'FL', '33154', 720, 
+     'Medium', 'Verified', '2023-07-22', 0xEDCBA9876543210FEDCBA987654321F),
+    (@NorthCUID, 'CUST00001003', 'Business', NULL, NULL, 'finance@greentechsolutions.com', 
+     '503-555-0345', '1200 Green Valley Rd', 'Portland', 'OR', '97202', NULL, 
+     'Low', 'Verified', '2022-11-05', NULL),
+    (@DigitalFirstID, 'CUST00001004', 'Individual', 'Sarah', 'Williams', 'sarah.williams@email.com', 
+     '512-555-0456', '789 Music Lane', 'Austin', 'TX', '78704', 698, 
+     'Medium', 'Verified', '2024-01-18', 0xDCBA9876543210FEDCBA987654321FE),
+    (@DigitalFirstID, 'CUST00001005', 'Individual', 'Michael', 'Thompson', 'mike.thompson@email.com', 
+     '737-555-0567', '321 South Lamar', 'Austin', 'TX', '78704', 805, 
+     'Low', 'Verified', '2023-11-30', 0xCBA9876543210FEDCBA987654321FED);
+
+    -- Update business customer with business name and EIN
+    UPDATE CORE.CUSTOMERS 
+    SET BUSINESS_NAME = 'GreenTech Solutions LLC', 
+        EIN_ENCRYPTED = 0x9876543210FEDCBA9876543210FEDCBA
+    WHERE INSTITUTION_ID = @NorthCUID AND CUSTOMER_NUMBER = 'CUST00001003';
+    
+    PRINT 'Inserted Customers';
+END
+ELSE
+    PRINT 'Customers already exist, skipping...';
+
+-- Get Customer IDs for reference
+DECLARE @Cust1ID INT = (SELECT TOP 1 CUSTOMER_ID FROM CORE.CUSTOMERS WHERE INSTITUTION_ID = @SunnyBankID AND CUSTOMER_NUMBER = 'CUST00001001');
+DECLARE @Cust2ID INT = (SELECT TOP 1 CUSTOMER_ID FROM CORE.CUSTOMERS WHERE INSTITUTION_ID = @SunnyBankID AND CUSTOMER_NUMBER = 'CUST00001002');
+DECLARE @Cust3ID INT = (SELECT TOP 1 CUSTOMER_ID FROM CORE.CUSTOMERS WHERE INSTITUTION_ID = @NorthCUID AND CUSTOMER_NUMBER = 'CUST00001003');
+DECLARE @Cust4ID INT = (SELECT TOP 1 CUSTOMER_ID FROM CORE.CUSTOMERS WHERE INSTITUTION_ID = @DigitalFirstID AND CUSTOMER_NUMBER = 'CUST00001004');
+DECLARE @Cust5ID INT = (SELECT TOP 1 CUSTOMER_ID FROM CORE.CUSTOMERS WHERE INSTITUTION_ID = @DigitalFirstID AND CUSTOMER_NUMBER = 'CUST00001005');
+
+-- Insert Accounts
+IF NOT EXISTS (SELECT 1 FROM CORE.ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND ACCOUNT_NUMBER = '0110001001')
+BEGIN
+    INSERT INTO CORE.ACCOUNTS (
+        INSTITUTION_ID, CUSTOMER_ID, PRODUCT_TYPE_ID, ACCOUNT_NUMBER, 
+        ACCOUNT_NAME, CURRENT_BALANCE, AVAILABLE_BALANCE, OPEN_DATE
+    ) VALUES 
+    (@SunnyBankID, @Cust1ID, @CheckingID, '0110001001', 'Daily Banking', 3750.80, 3750.80, '2023-03-10'),
+    (@SunnyBankID, @Cust1ID, @SavingsID, '0110001002', 'Vacation Fund', 12500.00, 12500.00, '2023-03-15'),
+    (@SunnyBankID, @Cust2ID, @CheckingID, '0110001003', 'Main Account', 2180.45, 2180.45, '2023-07-22'),
+    (@SunnyBankID, @Cust2ID, @SavingsID, '0110001004', 'Emergency Savings', 8900.00, 8900.00, '2023-08-01'),
+    (@NorthCUID, @Cust3ID, @CheckingID, '0220001001', 'Business Operations', 65000.00, 65000.00, '2022-11-05'),
+    (@DigitalFirstID, @Cust4ID, @CheckingID, '0330001001', 'Smart Checking', 1875.25, 1875.25, '2024-01-18'),
+    (@DigitalFirstID, @Cust5ID, @CheckingID, '0330001002', 'Premium Account', 4320.90, 4320.90, '2023-11-30'),
+    (@DigitalFirstID, @Cust5ID, @SavingsID, '0330001003', 'Growth Savings', 18750.00, 18750.00, '2023-12-05');
+    PRINT 'Inserted Accounts';
+END
+ELSE
+    PRINT 'Accounts already exist, skipping...';
+
+-- =============================================================================
+-- PAYMENTS SCHEMA
+-- =============================================================================
+
+-- Insert Payment Networks
+IF NOT EXISTS (SELECT 1 FROM PAYMENTS.PAYMENT_NETWORKS WHERE NETWORK_CODE = 'FEDNOW')
+BEGIN
+    INSERT INTO PAYMENTS.PAYMENT_NETWORKS (
+        NETWORK_CODE, NETWORK_NAME, NETWORK_TYPE, PROCESSING_FEE, 
+        SETTLEMENT_TIME, MAX_TRANSACTION_AMOUNT
+    ) VALUES 
+    ('FEDNOW', 'FedNow Service', 'RTP', 0.45, 'Instant', 500000.00),
+    ('NACHA', 'NACHA Network', 'ACH', 0.30, 'Next Day', 1000000.00),
+    ('FEDWIRE2', 'Fedwire System', 'Wire', 18.00, 'Same Day', 50000000.00),
+    ('VENMO', 'Venmo Network', 'P2P', 0.00, 'Instant', 7000.00);
+    PRINT 'Inserted Payment Networks';
+END
+ELSE
+    PRINT 'Payment Networks already exist, skipping...';
+
+-- Get Network IDs and Account IDs for reference
+DECLARE @FedNowID INT = (SELECT TOP 1 NETWORK_ID FROM PAYMENTS.PAYMENT_NETWORKS WHERE NETWORK_CODE = 'FEDNOW');
+DECLARE @NACHAID INT = (SELECT TOP 1 NETWORK_ID FROM PAYMENTS.PAYMENT_NETWORKS WHERE NETWORK_CODE = 'NACHA');
+DECLARE @FedWireID INT = (SELECT TOP 1 NETWORK_ID FROM PAYMENTS.PAYMENT_NETWORKS WHERE NETWORK_CODE = 'FEDWIRE2');
+DECLARE @VenmoID INT = (SELECT TOP 1 NETWORK_ID FROM PAYMENTS.PAYMENT_NETWORKS WHERE NETWORK_CODE = 'VENMO');
+
+DECLARE @Acct1ID INT = (SELECT TOP 1 ACCOUNT_ID FROM CORE.ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND ACCOUNT_NUMBER = '0110001001');
+DECLARE @Acct2ID INT = (SELECT TOP 1 ACCOUNT_ID FROM CORE.ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND ACCOUNT_NUMBER = '0110001002');
+DECLARE @Acct3ID INT = (SELECT TOP 1 ACCOUNT_ID FROM CORE.ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND ACCOUNT_NUMBER = '0110001003');
+DECLARE @Acct5ID INT = (SELECT TOP 1 ACCOUNT_ID FROM CORE.ACCOUNTS WHERE INSTITUTION_ID = @NorthCUID AND ACCOUNT_NUMBER = '0220001001');
+DECLARE @Acct6ID INT = (SELECT TOP 1 ACCOUNT_ID FROM CORE.ACCOUNTS WHERE INSTITUTION_ID = @DigitalFirstID AND ACCOUNT_NUMBER = '0330001001');
+DECLARE @Acct7ID INT = (SELECT TOP 1 ACCOUNT_ID FROM CORE.ACCOUNTS WHERE INSTITUTION_ID = @DigitalFirstID AND ACCOUNT_NUMBER = '0330001002');
+
+-- Insert Payment Transactions
+IF NOT EXISTS (SELECT 1 FROM PAYMENTS.TRANSACTIONS WHERE INSTITUTION_ID = @SunnyBankID AND TRANSACTION_NUMBER = 'TXN100000001')
+BEGIN
+    INSERT INTO PAYMENTS.TRANSACTIONS (
+        INSTITUTION_ID, NETWORK_ID, TRANSACTION_NUMBER, PAYMENT_TYPE, 
+        DEBIT_ACCOUNT_ID, CREDIT_ACCOUNT_ID, EXTERNAL_ACCOUNT_NUMBER,
+        EXTERNAL_ROUTING_NUMBER, EXTERNAL_BANK_NAME, AMOUNT, TRANSACTION_DATE, 
+        EFFECTIVE_DATE, STATUS, DESCRIPTION
+    ) VALUES 
+    (@SunnyBankID, @FedNowID, 'TXN100000001', 'RTP Credit', @Acct1ID, @Acct3ID, NULL, NULL, NULL,
+     750.00, '2024-07-01 11:45:00', '2024-07-01', 'Completed', 'Rent payment split'),
+    (@SunnyBankID, @FedWireID, 'TXN100000002', 'Wire', NULL, @Acct2ID, '1111222233', '777888999', 'Mountain West Bank',
+     5000.00, '2024-07-01 09:30:00', '2024-07-01', 'Completed', 'Real estate deposit'),
+    (@DigitalFirstID, @VenmoID, 'TXN100000003', 'P2P', @Acct7ID, NULL, '9999888877', '555444333', 'Central City Bank',
+     225.00, '2024-07-01 20:15:00', '2024-07-01', 'Completed', 'Dinner split payment'),
+    (@NorthCUID, @NACHAID, 'TXN100000004', 'ACH Credit', @Acct5ID, NULL, '4444555566', '222111000', 'Pacific Trust Bank',
+     3500.00, '2024-07-01 08:00:00', '2024-07-01', 'Processing', 'Supplier payment'),
+    (@DigitalFirstID, @FedNowID, 'TXN100000005', 'RTP Debit', NULL, @Acct6ID, '8888777766', '999000111', 'Lone Star Credit Union',
+     1200.00, '2024-07-01 16:20:00', '2024-07-01', 'Completed', 'Freelance payment received');
+    PRINT 'Inserted Payment Transactions';
+END
+ELSE
+    PRINT 'Payment Transactions already exist, skipping...';
+
+-- =============================================================================
+-- CARDS SCHEMA
+-- =============================================================================
+
+-- Insert Card Programs
+IF NOT EXISTS (SELECT 1 FROM CARDS.CARD_PROGRAMS WHERE PROGRAM_CODE = 'DEB200')
+BEGIN
+    INSERT INTO CARDS.CARD_PROGRAMS (
+        PROGRAM_CODE, PROGRAM_NAME, CARD_TYPE, CARD_NETWORK, BIN, 
+        ANNUAL_FEE, INTEREST_RATE, REWARDS_PROGRAM
+    ) VALUES 
+    ('DEB200', 'Smart Debit Card', 'Debit', 'Mastercard', '528432', 0.00, NULL, NULL),
+    ('CC200', 'Rewards Credit Card', 'Credit', 'Visa', '423456', 0.00, 0.1749, 'Double Cash Back'),
+    ('CC201', 'Travel Elite Card', 'Credit', 'American Express', '374567', 125.00, 0.1599, 'Travel Miles Program'),
+    ('BUS200', 'Business Fleet Card', 'Business', 'Visa', '443654', 25.00, NULL, 'Fleet Management Rewards');
+    PRINT 'Inserted Card Programs';
+END
+ELSE
+    PRINT 'Card Programs already exist, skipping...';
+
+-- Get Card Program IDs for reference
+DECLARE @DebProg1ID INT = (SELECT TOP 1 PROGRAM_ID FROM CARDS.CARD_PROGRAMS WHERE PROGRAM_CODE = 'DEB200');
+DECLARE @CCProg1ID INT = (SELECT TOP 1 PROGRAM_ID FROM CARDS.CARD_PROGRAMS WHERE PROGRAM_CODE = 'CC200');
+DECLARE @CCProg2ID INT = (SELECT TOP 1 PROGRAM_ID FROM CARDS.CARD_PROGRAMS WHERE PROGRAM_CODE = 'CC201');
+DECLARE @BusProg1ID INT = (SELECT TOP 1 PROGRAM_ID FROM CARDS.CARD_PROGRAMS WHERE PROGRAM_CODE = 'BUS200');
+
+-- Insert Card Accounts
+IF NOT EXISTS (SELECT 1 FROM CARDS.CARD_ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND CARD_NUMBER_MASKED = '****-****-****-8765')
+BEGIN
+    INSERT INTO CARDS.CARD_ACCOUNTS (
+        INSTITUTION_ID, CUSTOMER_ID, PROGRAM_ID, LINKED_ACCOUNT_ID, 
+        CARD_NUMBER_ENCRYPTED, CARD_NUMBER_MASKED, EXPIRATION_DATE, 
+        CVV_ENCRYPTED, CARD_HOLDER_NAME, CREDIT_LIMIT, AVAILABLE_CREDIT, 
+        CURRENT_BALANCE, ISSUE_DATE
+    ) VALUES 
+    (@SunnyBankID, @Cust1ID, @DebProg1ID, @Acct1ID, 0x9F8E7D6C5B4A39281F0E9D8C7B6A59483F2E1D0C9B8A7968, 
+     '****-****-****-8765', '03/29', 0x9F8E7D6C, 'MARIA GARCIA', 
+     NULL, NULL, 0.00, '2023-03-15'),
+    (@SunnyBankID, @Cust1ID, @CCProg1ID, NULL, 0x8E7D6C5B4A39281F0E9D8C7B6A59483F2E1D0C9B8A796857, 
+     '****-****-****-4321', '02/28', 0x8E7D6C5B, 'MARIA GARCIA', 
+     8000.00, 5250.00, 2750.00, '2023-04-01'),
+    (@SunnyBankID, @Cust2ID, @DebProg1ID, @Acct3ID, 0x7D6C5B4A39281F0E9D8C7B6A59483F2E1D0C9B8A79685746, 
+     '****-****-****-6789', '01/30', 0x7D6C5B4A, 'DAVID CHEN', 
+     NULL, NULL, 0.00, '2023-07-25'),
+    (@DigitalFirstID, @Cust5ID, @CCProg2ID, NULL, 0x6C5B4A39281F0E9D8C7B6A59483F2E1D0C9B8A7968574635, 
+     '****-****-****-1357', '06/27', 0x6C5B4A39, 'MICHAEL THOMPSON', 
+     15000.00, 13200.00, 1800.00, '2023-12-10'),
+    (@NorthCUID, @Cust3ID, @BusProg1ID, @Acct5ID, 0x5B4A39281F0E9D8C7B6A59483F2E1D0C9B8A796857463524, 
+     '****-****-****-2468', '05/28', 0x5B4A3928, 'GREENTECH SOLUTIONS LLC', 
+     NULL, NULL, 0.00, '2022-11-20');
+    PRINT 'Inserted Card Accounts';
+END
+ELSE
+    PRINT 'Card Accounts already exist, skipping...';
+
+-- Get Card Account IDs for reference
+DECLARE @Card1ID INT = (SELECT TOP 1 CARD_ACCOUNT_ID FROM CARDS.CARD_ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND CARD_NUMBER_MASKED = '****-****-****-8765');
+DECLARE @Card2ID INT = (SELECT TOP 1 CARD_ACCOUNT_ID FROM CARDS.CARD_ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND CARD_NUMBER_MASKED = '****-****-****-4321');
+DECLARE @Card3ID INT = (SELECT TOP 1 CARD_ACCOUNT_ID FROM CARDS.CARD_ACCOUNTS WHERE INSTITUTION_ID = @SunnyBankID AND CARD_NUMBER_MASKED = '****-****-****-6789');
+DECLARE @Card4ID INT = (SELECT TOP 1 CARD_ACCOUNT_ID FROM CARDS.CARD_ACCOUNTS WHERE INSTITUTION_ID = @DigitalFirstID AND CARD_NUMBER_MASKED = '****-****-****-1357');
+DECLARE @Card5ID INT = (SELECT TOP 1 CARD_ACCOUNT_ID FROM CARDS.CARD_ACCOUNTS WHERE INSTITUTION_ID = @NorthCUID AND CARD_NUMBER_MASKED = '****-****-****-2468');
+
+-- Insert Card Transactions
+IF NOT EXISTS (SELECT 1 FROM CARDS.CARD_TRANSACTIONS WHERE CARD_ACCOUNT_ID = @Card1ID AND AMOUNT = 67.89 AND MERCHANT_NAME = 'Whole Foods Market')
+BEGIN
+    INSERT INTO CARDS.CARD_TRANSACTIONS (
+        CARD_ACCOUNT_ID, TRANSACTION_TYPE, AMOUNT, MERCHANT_NAME, 
+        MERCHANT_CATEGORY, TRANSACTION_DATE, STATUS, LOCATION
+    ) VALUES 
+    (@Card1ID, 'Purchase', 67.89, 'Whole Foods Market', 'Grocery Stores', 
+     '2024-07-01 10:45:00', 'Posted', 'Miami, FL'),
+    (@Card2ID, 'Purchase', 89.50, 'Shell Gas Station', 'Gas Stations', 
+     '2024-07-01 07:30:00', 'Posted', 'Miami Beach, FL'),
+    (@Card3ID, 'ATM Withdrawal', 80.00, NULL, 'ATM', 
+     '2024-07-01 19:15:00', 'Posted', 'Miami, FL'),
+    (@Card4ID, 'Purchase', 1250.75, 'Apple Store', 'Electronics', 
+     '2024-07-01 15:20:00', 'Posted', 'Austin, TX'),
+    (@Card5ID, 'Purchase', 345.60, 'Office Depot', 'Business Services', 
+     '2024-07-01 11:30:00', 'Posted', 'Portland, OR'),
+    (@Card2ID, 'Payment', 500.00, NULL, 'Payment', 
+     '2024-06-30 22:00:00', 'Posted', 'Online'),
+    (@Card4ID, 'Purchase', 45.25, 'Starbucks', 'Restaurants', 
+     '2024-07-01 08:00:00', 'Posted', 'Austin, TX');
+    PRINT 'Inserted Card Transactions';
+END
+ELSE
+    PRINT 'Card Transactions already exist, skipping...';
+
+-- =============================================================================
+-- DIGITAL SCHEMA
+-- =============================================================================
+
+-- Insert Digital Users
+IF NOT EXISTS (SELECT 1 FROM DIGITAL.DIGITAL_USERS WHERE CUSTOMER_ID = @Cust1ID)
+BEGIN
+    INSERT INTO DIGITAL.DIGITAL_USERS (
+        CUSTOMER_ID, USERNAME, PASSWORD_HASH, EMAIL, MOBILE_PHONE, 
+        LAST_LOGIN_DATE, TWO_FACTOR_ENABLED, PREFERRED_NOTIFICATION_METHOD
+    ) VALUES 
+    (@Cust1ID, 'mgarcia2024', 0xA1B2C3D4E5F60708A9B0C1D2E3F40506A7B8C9D0E1F20304, 'maria.garcia@email.com', '786-555-0123', 
+     '2024-07-01 09:20:00', 1, 'SMS'),
+    (@Cust2ID, 'dchen_miami', 0xB2C3D4E5F60708A9B0C1D2E3F40506A7B8C9D0E1F20304A5, 'david.chen@email.com', '305-555-0234', 
+     '2024-07-01 06:45:00', 1, 'Email'),
+    (@Cust3ID, 'greentech_admin', 0xC3D4E5F60708A9B0C1D2E3F40506A7B8C9D0E1F20304A5B6, 'finance@greentechsolutions.com', '503-555-0345', 
+     '2024-06-30 17:30:00', 1, 'Email'),
+    (@Cust4ID, 'swilliams_atx', 0xD4E5F60708A9B0C1D2E3F40506A7B8C9D0E1F20304A5B6C7, 'sarah.williams@email.com', '512-555-0456', 
+     '2024-07-01 12:10:00', 0, 'Push'),
+    (@Cust5ID, 'mthompson512', 0xE5F60708A9B0C1D2E3F40506A7B8C9D0E1F20304A5B6C7D8, 'mike.thompson@email.com', '737-555-0567', 
+     '2024-07-01 21:35:00', 1, 'SMS');
+    PRINT 'Inserted Digital Users';
+END
+ELSE
+    PRINT 'Digital Users already exist, skipping...';
+
+-- Get Digital User IDs for reference
+DECLARE @User1ID INT = (SELECT TOP 1 USER_ID FROM DIGITAL.DIGITAL_USERS WHERE CUSTOMER_ID = @Cust1ID);
+DECLARE @User2ID INT = (SELECT TOP 1 USER_ID FROM DIGITAL.DIGITAL_USERS WHERE CUSTOMER_ID = @Cust2ID);
+DECLARE @User3ID INT = (SELECT TOP 1 USER_ID FROM DIGITAL.DIGITAL_USERS WHERE CUSTOMER_ID = @Cust3ID);
+DECLARE @User5ID INT = (SELECT TOP 1 USER_ID FROM DIGITAL.DIGITAL_USERS WHERE CUSTOMER_ID = @Cust5ID);
+
+-- Insert User Sessions
+IF NOT EXISTS (SELECT 1 FROM DIGITAL.USER_SESSIONS WHERE USER_ID = @User1ID AND SESSION_TOKEN = 'sess_miami2024_xyz789')
+BEGIN
+    INSERT INTO DIGITAL.USER_SESSIONS (
+        USER_ID, SESSION_TOKEN, DEVICE_TYPE, IP_ADDRESS, 
+        START_TIME, LAST_ACTIVITY, STATUS
+    ) VALUES 
+    (@User1ID, 'sess_miami2024_xyz789', 'Mobile App', '10.1.1.100', 
+     '2024-07-01 09:20:00', '2024-07-01 09:50:00', 'Active'),
+    (@User2ID, 'sess_chrome_abc123', 'Web Browser', '192.168.10.50', 
+     '2024-07-01 06:45:00', '2024-07-01 07:15:00', 'Expired'),
+    (@User3ID, 'sess_business_def456', 'Web Browser', '172.20.0.25', 
+     '2024-06-30 17:30:00', '2024-06-30 18:00:00', 'Terminated'),
+    (@User5ID, 'sess_austin_ghi789', 'Mobile App', '10.5.5.75', 
+     '2024-07-01 21:35:00', '2024-07-01 22:05:00', 'Active');
+    PRINT 'Inserted User Sessions';
+END
+ELSE
+    PRINT 'User Sessions already exist, skipping...';
+
+-- Insert Bill Pay Payees
+IF NOT EXISTS (SELECT 1 FROM DIGITAL.BILL_PAY_PAYEES WHERE CUSTOMER_ID = @Cust1ID AND PAYEE_NAME = 'Florida Power & Light')
+BEGIN
+    INSERT INTO DIGITAL.BILL_PAY_PAYEES (
+        CUSTOMER_ID, PAYEE_NAME, PAYEE_TYPE, ACCOUNT_NUMBER, 
+        ADDRESS, CITY, STATE, ZIP_CODE, PHONE
+    ) VALUES 
+    (@Cust1ID, 'Florida Power & Light', 'Utility', '987654321', 
+     '9250 Flagler St', 'Miami', 'FL', '33174', '305-442-8770'),
+    (@Cust1ID, 'American Express', 'Credit Card', '378282246310005', 
+     'PO Box 981532', 'El Paso', 'TX', '79998', '800-528-4800'),
+    (@Cust2ID, 'Miami-Dade Water', 'Utility', '555666777', 
+     '3071 SW 38th Ave', 'Miami', 'FL', '33146', '305-665-7477'),
+    (@Cust3ID, 'Portland General Electric', 'Utility', 'PGE12345678', 
+     '121 SW Salmon St', 'Portland', 'OR', '97204', '503-464-8000'),
+    (@Cust4ID, 'Austin Energy', 'Utility', 'AE987654321', 
+     '4815 E Cesar Chavez St', 'Austin', 'TX', '78702', '512-494-9400'),
+    (@Cust5ID, 'Capital One', 'Credit Card', '4000123456789010', 
+     'PO Box 85007', 'Richmond', 'VA', '23285', '800-955-7070');
+    PRINT 'Inserted Bill Pay Payees';
+END
+ELSE
+    PRINT 'Bill Pay Payees already exist, skipping...';
+
+-- =============================================================================
+-- RISK SCHEMA
+-- =============================================================================
+
+-- Insert Risk Rules
+IF NOT EXISTS (SELECT 1 FROM RISK.RISK_RULES WHERE RULE_NAME = 'Large Transaction Alert')
+BEGIN
+    INSERT INTO RISK.RISK_RULES (
+        RULE_NAME, RULE_TYPE, RULE_DESCRIPTION, RISK_SCORE, SEVERITY
+    ) VALUES 
+    ('Large Transaction Alert', 'Fraud Detection', 'Transactions over $5,000', 70, 'Medium'),
+    ('Transaction Frequency Check', 'Fraud Detection', 'More than 5 transactions in 1 hour', 65, 'Medium'),
+    ('High-Risk Merchant Alert', 'Fraud Detection', 'Transactions at high-risk merchant categories', 55, 'Low'),
+    ('Cross-Border Transaction', 'AML', 'International wire transfers over $1,000', 75, 'High'),
+    ('Account Access Anomaly', 'Cyber Security', 'Login from unusual location or device', 60, 'Medium'),
+    ('Structured Transaction Pattern', 'AML', 'Multiple transactions just under reporting threshold', 90, 'Critical');
+    PRINT 'Inserted Risk Rules';
+END
+ELSE
+    PRINT 'Risk Rules already exist, skipping...';
+
+-- Get Risk Rule IDs and Transaction IDs for reference
+DECLARE @Rule1ID INT = (SELECT TOP 1 RULE_ID FROM RISK.RISK_RULES WHERE RULE_NAME = 'Large Transaction Alert');
+DECLARE @Rule2ID INT = (SELECT TOP 1 RULE_ID FROM RISK.RISK_RULES WHERE RULE_NAME = 'Transaction Frequency Check');
+DECLARE @Rule3ID INT = (SELECT TOP 1 RULE_ID FROM RISK.RISK_RULES WHERE RULE_NAME = 'Account Access Anomaly');
+
+DECLARE @Trans1ID INT = (SELECT TOP 1 TRANSACTION_ID FROM PAYMENTS.TRANSACTIONS WHERE INSTITUTION_ID = @SunnyBankID AND TRANSACTION_NUMBER = 'TXN100000002');
+DECLARE @Trans2ID INT = (SELECT TOP 1 TRANSACTION_ID FROM PAYMENTS.TRANSACTIONS WHERE INSTITUTION_ID = @DigitalFirstID AND TRANSACTION_NUMBER = 'TXN100000005');
+
+-- Insert Risk Events (only if we have valid rule IDs)
+IF @Rule1ID IS NOT NULL AND @Rule2ID IS NOT NULL AND @Rule3ID IS NOT NULL AND @Trans1ID IS NOT NULL AND @Trans2ID IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM RISK.RISK_EVENTS WHERE RULE_ID = @Rule1ID AND CUSTOMER_ID = @Cust1ID)
+    BEGIN
+        INSERT INTO RISK.RISK_EVENTS (
+            RULE_ID, INSTITUTION_ID, CUSTOMER_ID, TRANSACTION_ID, EVENT_TYPE, 
+            EVENT_DESCRIPTION, RISK_SCORE, SEVERITY, STATUS, EVENT_DATE
+        ) VALUES 
+        (@Rule1ID, @SunnyBankID, @Cust1ID, @Trans1ID, 'Fraud Alert', 'Wire transfer of $5,000 flagged for review', 72, 'Medium', 'Resolved', '2024-07-01 09:35:00'),
+        (@Rule2ID, @DigitalFirstID, @Cust5ID, @Trans2ID, 'Fraud Alert', 'Customer made 4 card transactions within 30 minutes', 68, 'Medium', 'False Positive', '2024-07-01 15:25:00'),
+        (@Rule3ID, @DigitalFirstID, @Cust4ID, NULL, 'Cyber Security', 'Login attempt from new device location', 58, 'Medium', 'Under Review', '2024-07-01 12:05:00');
+        PRINT 'Inserted Risk Events';
+    END
+    ELSE
+        PRINT 'Risk Events already exist, skipping...';
+END
+ELSE
+BEGIN
+    PRINT 'Could not insert Risk Events - missing required rule or transaction IDs';
+    PRINT 'Rule1ID: ' + ISNULL(CAST(@Rule1ID AS VARCHAR), 'NULL');
+    PRINT 'Rule2ID: ' + ISNULL(CAST(@Rule2ID AS VARCHAR), 'NULL');
+    PRINT 'Rule3ID: ' + ISNULL(CAST(@Rule3ID AS VARCHAR), 'NULL');
+    PRINT 'Trans1ID: ' + ISNULL(CAST(@Trans1ID AS VARCHAR), 'NULL');
+    PRINT 'Trans2ID: ' + ISNULL(CAST(@Trans2ID AS VARCHAR), 'NULL');
+END
+
+-- =============================================================================
+-- COMPLIANCE SCHEMA
+-- =============================================================================
+
+-- Insert Regulatory Reports
+IF NOT EXISTS (SELECT 1 FROM COMPLIANCE.REGULATORY_REPORTS WHERE INSTITUTION_ID = @SunnyBankID AND REPORT_TYPE = 'Call Report' AND REPORTING_PERIOD = 'Q2 2024')
+BEGIN
+    INSERT INTO COMPLIANCE.REGULATORY_REPORTS (
+        INSTITUTION_ID, REPORT_TYPE, REPORTING_PERIOD, REGULATOR_ID, 
+        STATUS, SUBMISSION_DATE, DUE_DATE, FILE_PATH
+    ) VALUES 
+    (@SunnyBankID, 'Call Report', 'Q2 2024', 'FDIC', 'Acknowledged', '2024-06-27', '2024-07-15', '/reports/SUNNYBANK/CallReport_Q2_2024.pdf'),
+    (@NorthCUID, 'CTR', 'June 2024', 'FinCEN', 'Submitted', '2024-06-29', '2024-07-30', '/reports/NORTHCU/CTR_June_2024.pdf'),
+    (@DigitalFirstID, 'SAR', 'June 2024', 'FinCEN', 'Under Review', '2024-06-26', '2024-07-25', '/reports/DIGITALFIRST/SAR_June_2024.pdf'),
+    (@SunnyBankID, 'BSA', 'Q2 2024', 'FDIC', 'Draft', NULL, '2024-07-22', NULL);
+    PRINT 'Inserted Regulatory Reports';
+END
+ELSE
+    PRINT 'Regulatory Reports already exist, skipping...';
+
+-- Insert Sanctions Screening
+IF NOT EXISTS (SELECT 1 FROM COMPLIANCE.SANCTIONS_SCREENING WHERE CUSTOMER_ID = @Cust1ID AND ENTITY_NAME = 'Maria Garcia')
+BEGIN
+    INSERT INTO COMPLIANCE.SANCTIONS_SCREENING (
+        CUSTOMER_ID, ENTITY_NAME, SCREENING_TYPE, LIST_NAME, 
+        STATUS, SCREENING_DATE, REVIEWED_BY
+    ) VALUES 
+    (@Cust1ID, 'Maria Garcia', 'Customer Onboarding', 'OFAC SDN', 'Clear', '2023-03-10 11:30:00', 'Senior Compliance Analyst'),
+    (@Cust2ID, 'David Chen', 'Periodic Review', 'EU Sanctions', 'Clear', '2024-01-20 09:15:00', 'Compliance Specialist'),
+    (@Cust3ID, 'GreenTech Solutions LLC', 'Customer Onboarding', 'OFAC SDN', 'Clear', '2022-11-05 16:45:00', 'AML Officer'),
+    (@Cust4ID, 'Sarah Williams', 'Customer Onboarding', 'UN Sanctions', 'Clear', '2024-01-18 13:20:00', 'Compliance Officer'),
+    (@Cust5ID, 'Michael Thompson', 'Customer Onboarding', 'OFAC SDN', 'Clear', '2023-11-30 10:00:00', 'Senior Compliance Analyst');
+    PRINT 'Inserted Sanctions Screening';
+END
+ELSE
+    PRINT 'Sanctions Screening already exist, skipping...';
+
+-- =============================================================================
+-- ANALYTICS SCHEMA
+-- =============================================================================
+
+-- Insert Daily Metrics (last 7 days) - Use unique dates per institution
+IF NOT EXISTS (SELECT 1 FROM ANALYTICS.DAILY_METRICS WHERE INSTITUTION_ID = @SunnyBankID AND METRIC_DATE = '2024-06-28')
+BEGIN
+    INSERT INTO ANALYTICS.DAILY_METRICS (
+        INSTITUTION_ID, METRIC_DATE, TOTAL_TRANSACTIONS, TOTAL_TRANSACTION_VOLUME, 
+        TOTAL_CUSTOMERS, NEW_CUSTOMERS, ACTIVE_DIGITAL_USERS, TOTAL_DEPOSITS, 
+        TOTAL_LOANS, FRAUD_DETECTED_COUNT, COMPLIANCE_ALERTS, SYSTEM_UPTIME
+    ) VALUES 
+    -- Sunny State Bank metrics
+    (@SunnyBankID, '2024-06-28', 1890, 3245678.90, 18500, 25, 7200, 3100000000.00, 2650000000.00, 2, 1, 99.96),
+    (@SunnyBankID, '2024-06-29', 2150, 3567890.12, 18525, 32, 7450, 3125000000.00, 2670000000.00, 1, 0, 100.00),
+    (@SunnyBankID, '2024-06-30', 1750, 2987654.32, 18557, 18, 7100, 3098000000.00, 2645000000.00, 3, 2, 99.94),
+    
+    -- Northern Credit Union metrics
+    (@NorthCUID, '2024-06-28', 567, 876543.21, 8500, 12, 3100, 880000000.00, 650000000.00, 0, 1, 99.99),
+    (@NorthCUID, '2024-06-29', 620, 945678.90, 8512, 15, 3250, 890000000.00, 655000000.00, 1, 0, 100.00),
+    (@NorthCUID, '2024-06-30', 490, 723456.78, 8527, 8, 2980, 885000000.00, 652000000.00, 1, 1, 99.97),
+    
+    -- Digital First Bank metrics
+    (@DigitalFirstID, '2024-06-28', 1245, 1876543.21, 14200, 45, 9800, 1750000000.00, 1350000000.00, 4, 2, 99.92),
+    (@DigitalFirstID, '2024-06-29', 1380, 2098765.43, 14245, 52, 10200, 1780000000.00, 1375000000.00, 2, 1, 99.98),
+    (@DigitalFirstID, '2024-06-30', 1156, 1654321.09, 14297, 38, 9650, 1765000000.00, 1362000000.00, 1, 0, 100.00);
+    PRINT 'Inserted Daily Metrics';
+END
+ELSE
+    PRINT 'Daily Metrics already exist, skipping...';
+
+-- =============================================================================
+-- COMPLETION MESSAGE
+-- =============================================================================
+
+PRINT '';
+PRINT '✅ Sample data insertion completed successfully! (Version 2)';
+PRINT 'Data inserted into all tables across 7 schemas:';
+PRINT '- CORE: 3 institutions, 5 customers, 5 product types, 8 accounts';
+PRINT '- PAYMENTS: 4 networks, 5 transactions';  
+PRINT '- CARDS: 4 programs, 5 card accounts, 7 card transactions';
+PRINT '- DIGITAL: 5 users, 4 sessions, 6 payees';
+PRINT '- RISK: 6 rules, 3 events';
+PRINT '- COMPLIANCE: 4 reports, 5 screenings';
+PRINT '- ANALYTICS: 9 daily metric records';
+PRINT '';
+PRINT '🏦 New Institutions: Sunny State Bank (FL), Northern Credit Union (OR), Digital First Bank (TX)';
+PRINT '👥 New Customers: Maria Garcia, David Chen, GreenTech Solutions, Sarah Williams, Michael Thompson';
+PRINT '💰 Transaction Volume: $13.7M across 5 payment transactions';
+PRINT '💳 Card Activity: 7 transactions totaling $2,459.49';
+PRINT '';
+PRINT '🔍 You can now query the data using views:';
+PRINT '- PAYMENTS.VW_TRANSACTION_SUMMARY';
+PRINT '- ANALYTICS.VW_DAILY_ANALYTICS';
+PRINT '';
+PRINT '📊 Sample queries to try:';
+PRINT '- SELECT * FROM CORE.FINANCIAL_INSTITUTIONS WHERE STATE IN (''FL'', ''OR'', ''TX'');';
+PRINT '- SELECT * FROM PAYMENTS.VW_TRANSACTION_SUMMARY WHERE AMOUNT > 1000;';
+PRINT '- SELECT * FROM ANALYTICS.VW_DAILY_ANALYTICS WHERE METRIC_DATE >= ''2024-06-28'';';

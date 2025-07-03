@@ -1,0 +1,61 @@
+use role accountadmin;
+
+create or replace network rule resend_network_rule
+    mode = egress
+    type = host_port
+    value_list = ('api.resend.com');
+
+create or replace secret resend_api_key
+    type = generic_string
+    secret_string = 're_fAnPtQHC_EuYyWvu33TRaefeR5mp9SuoA';
+
+create or replace external access integration resend_integration
+allowed_network_rules = (resend_network_rule)
+allowed_authentication_secrets = (resend_api_key)
+enabled = true;
+
+select * from information_schema.packages
+where package_name ilike '%requests%';
+
+create or replace schema administration;
+
+drop function administration.sp_notify_email(VARCHAR, VARCHAR, VARCHAR);
+
+create or replace procedure
+administration.sp_notify_email(RECIPIENT VARCHAR, SUBJECT VARCHAR, BODY VARCHAR)
+returns VARCHAR
+LANGUAGE PYTHON
+RUNTIME_VERSION = 3.11
+HANDLER = 'notify_email'
+-- EXTERNAL_ACCESS_INTEGRATION(resend_integration)
+PACKAGES = ('snowflake-snowpark-python','requests')
+-- SECRETS = ('api_key' = resend_api_key )
+AS
+$$
+import requests
+import json
+
+import _snowflake
+
+def notify_email(session, recipient:str, subject:str,body:str):
+    headers = {
+        # 'Authorization': 'Bearer {}'.format(_snowflake.get_generic_secret_string('api_key')),
+        'Authorization': 'Bearer {}'.format("theapikeyxxxxxxxxxxxx"),
+        'Content-Type': 'application/json',
+    }
+    
+    json_data = {
+        'from': 'noreplay@malstonffdemo.xyz',
+        'to': recipient,
+        'subject': subject,
+        'html': '<div>{}</div>'.format(body),
+    }
+
+    # response = requests.post('https://api.resend.com/emails', headers=headers, json=json_data)
+    
+    return "Email sent:{}{}{} \n headers = {} \n json = {}".format(recipient, subject,body, json.dumps(headers), json.dumps(json_data))
+$$;
+
+call administration.sp_notify_email('sendto@example.com','subject test','body test');
+
+-- show secrets;

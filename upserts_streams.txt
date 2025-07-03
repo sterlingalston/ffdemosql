@@ -1,0 +1,10 @@
+list @staged.fiserv_azure_stg/ANALYTICS
+
+copy into analytics.daily_metrics
+from @staged.fiserv_azure_stg/ANALYTICS/
+file_format = 'db_ff_external_sql.staged.ff_fiserve_parquet'
+pattern = '.*DAILY_METRICS.*\.parquet'
+match_by_column_name = CASE_INSENSITIVE
+
+copy into PAYMENTS.TRANSACTIONS from @staged.fiserv_azure_stg/PAYMENTS/
+file_format = 'db_ff_external_sql.staged.ff_fiserve_parquet' pattern = '.*TRANSACTIONS.*\\.parquet'match_by_column_name = CASE_INSENSITIVE overwrite = TRUE

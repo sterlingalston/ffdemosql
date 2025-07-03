@@ -1,0 +1,58 @@
+CREATE OR REPLACE STORAGE INTEGRATION fiserve_data_azure
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = AZURE
+  ENABLED = TRUE
+  AZURE_TENANT_ID = '23cc2523-8248-4f00-ac1e-a5341210b6fb'
+  STORAGE_ALLOWED_LOCATIONS = ('azure://strgffdemomalston.blob.core.windows.net/fiserve-data');
+
+describe integration fiserve_data_azure;
+
+use schema staged;
+
+create or replace file format staged.ff_fiserve_parquet
+type = PARQUET
+trim_space = TRUE
+compression = AUTO
+
+create or replace stage staged.stg_fiserve_data
+FILE_FORMAT = (format_name = 'staged.ff_fiserve_parquet')
+
+select * from information_schema.tables
+where table_schema not ilike 'info%';
+
+list @staged.stg_fiserve_data;
+
+list @staged.stg_fiserve_data;
+
+CREATE OR REPLACE STAGE staged.fiserv_azure_stg
+  STORAGE_INTEGRATION = fiserve_data_azure
+  URL = 'azure://strgffdemomalston.blob.core.windows.net/fiserve-data'
+  FILE_FORMAT = staged.ff_fiserve_parquet
+  DIRECTORY = (ENABLE = TRUE);
+
+  list @db_ff_external_sql.staged.fiserv_azure_stg/
+  PATTERN='.*COMPLIANCE.*';
+
+-- create database db_test;
+use database db_test;
+  
+  create or replace table tester
+ using template (
+ select array_agg(object_construct(*))
+ from table(
+ infer_schema(
+ location=> '@db_ff_external_sql.staged.fiserv_azure_stg/DIGITAL/BILL_PAY_PAYEES-',
+ file_format=>'db_ff_external_sql.staged.ff_fiserve_parquet',
+ ignore_case => TRUE
+ )
+ ));
+
+
+select * from tester;
+ 
+use database db_ff_external_sql;
+select $1:"CREATED_DATE"
+ from @staged.fiserv_azure_stg/COMPLIANCE/REGULATORY_REPORTS-20250702113707.parquet
+
+ create or replace table PAYMENTS.TRANSACTIONS using template ( select array_agg(object_construct(*)) from table( 
+ infer_schema( location=>'@staged.fiserv_azure_stg/PAYMENTS/TRANSACTIONS-' file_format=>'staged.ff_fiserve_parquet' ignore_case => TRUE ) ));

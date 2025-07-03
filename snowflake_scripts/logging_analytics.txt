@@ -1,0 +1,213 @@
+CREATE OR REPLACE TABLE staged.tbl_logging(query_datetime timestamp_ltz, info OBJECT);
+
+select current_timestamp();
+
+-- Simple stored procedure for logging framework
+CREATE OR REPLACE PROCEDURE staged.sp_log(log_item OBJECT)
+RETURNS STRING
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'sp_log'
+AS
+$$
+
+import json
+
+def sp_log(session, log_item: dict):
+    try:
+        log_data = json.dumps(log_item)
+        
+        # Query to get account balances for the customer
+        logging_sql = f"""INSERT INTO staged.tbl_logging
+        SELECT column1 as n, PARSE_JSON(column2) as v
+        FROM 
+        VALUES(current_timestamp(),'{log_data}')
+        as vals;
+        """
+        
+        # Execute the query
+        result = session.sql(logging_sql).collect() 
+        
+        # Check if customer has accounts
+        if not result:
+            return f""
+        
+        return "Logged: " + str(log_item)
+        
+    except Exception as e:
+        error_msg = f"Error during log insertion: {str(e)}"
+
+        
+        
+        return error_msg
+$$;
+
+        
+
+call staged.sp_log({'name':'matt', 'year':'2025'})
+
+select * from db_malstonff.staged.tbl_logging
+
+-- Monitor query performance and identify slow-running queries
+SELECT 
+    query_id,
+    query_text,
+    user_name,
+    warehouse_name,
+    database_name,
+    schema_name,
+    start_time,
+    end_time,
+    DATEDIFF('second', start_time, end_time) as execution_time_seconds,
+    total_elapsed_time / 1000 as elapsed_seconds,
+    compilation_time / 1000 as compile_seconds,
+    execution_time / 1000 as exec_seconds,
+    queued_provisioning_time / 1000 as queue_seconds,
+    bytes_scanned,
+    rows_produced,
+    credits_used_cloud_services,
+    warehouse_size,
+    query_type,
+    execution_status,
+    error_code,
+    error_message
+FROM snowflake.account_usage.query_history
+WHERE start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
+    AND total_elapsed_time > 60000  -- Queries taking more than 60 seconds
+    AND execution_status = 'SUCCESS'
+ORDER BY total_elapsed_time DESC
+LIMIT 20;
+
+-- Warehouse usage and cost analysis
+SELECT 
+    warehouse_name,
+    DATE(start_time) as usage_date,
+    SUM(credits_used) as daily_credits,
+    COUNT(*) as query_count,
+    AVG(credits_used) as avg_credits_per_query,
+    SUM(DATEDIFF('second', start_time, end_time)) / 3600.0 as total_hours,
+    warehouse_size
+FROM snowflake.account_usage.warehouse_metering_history 
+WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+GROUP BY warehouse_name, DATE(start_time), warehouse_size
+ORDER BY daily_credits DESC;
+
+-- Storage usage by database and schema
+SELECT 
+    database_name,
+    schema_name,
+    AVG(storage_bytes) / POWER(1024, 3) as avg_storage_gb,
+    AVG(stage_bytes) / POWER(1024, 3) as avg_stage_gb,
+    AVG(failsafe_bytes) / POWER(1024, 3) as avg_failsafe_gb,
+    COUNT(*) as measurement_count
+FROM snowflake.account_usage.database_storage_usage_history
+WHERE usage_date >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+GROUP BY database_name, schema_name
+HAVING avg_storage_gb > 1  -- Only show schemas with > 1GB
+ORDER BY avg_storage_gb DESC;
+
+-- User activity and access patterns
+SELECT 
+    user_name,
+    DATE(start_time) as activity_date,
+    COUNT(*) as query_count,
+    COUNT(DISTINCT warehouse_name) as warehouses_used,
+    COUNT(DISTINCT database_name) as databases_accessed,
+    SUM(credits_used_cloud_services) as cloud_services_credits,
+    MAX(start_time) as last_activity
+FROM snowflake.account_usage.query_history
+WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    AND execution_status = 'SUCCESS'
+GROUP BY user_name, DATE(start_time)
+ORDER BY query_count DESC;
+
+-- Most expensive queries for cost optimization
+SELECT 
+    LEFT(query_text, 100) as query_preview,
+    user_name,
+    warehouse_name,
+    start_time,
+    credits_used_cloud_services,
+    total_elapsed_time / 1000 as elapsed_seconds,
+    bytes_scanned / POWER(1024, 3) as gb_scanned,
+    partitions_scanned,
+    partitions_total,
+    query_type,
+    compilation_time / 1000 as compile_seconds
+FROM snowflake.account_usage.query_history
+WHERE start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
+    AND credits_used_cloud_services > 0.1  -- Queries using significant credits
+    AND execution_status = 'SUCCESS'
+ORDER BY credits_used_cloud_services DESC
+LIMIT 25;
+
+-- Data loading patterns and ETL monitoring
+SELECT 
+    DATE(start_time) as load_date,
+    warehouse_name,
+    database_name,
+    schema_name,
+    COUNT(*) as load_operations,
+    SUM(rows_loaded) as total_rows_loaded,
+    SUM(rows_parsed) as total_rows_parsed,
+    AVG(total_elapsed_time) / 1000 as avg_load_time_seconds,
+    SUM(credits_used_cloud_services) as total_credits
+FROM snowflake.account_usage.copy_history
+WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    AND status = 'LOADED'
+GROUP BY DATE(start_time), warehouse_name, database_name, schema_name
+ORDER BY load_date DESC, total_rows_loaded DESC;
+
+-- Login history and security monitoring
+SELECT 
+    user_name,
+    DATE(event_timestamp) as login_date,
+    COUNT(*) as login_attempts,
+    COUNT(CASE WHEN is_success = 'YES' THEN 1 END) as successful_logins,
+    COUNT(CASE WHEN is_success = 'NO' THEN 1 END) as failed_logins,
+    COUNT(DISTINCT client_ip) as unique_ips,
+    MAX(event_timestamp) as last_login_time
+FROM snowflake.account_usage.login_history
+WHERE event_timestamp >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+GROUP BY user_name, DATE(event_timestamp)
+HAVING failed_logins > 3  -- Flag users with multiple failed attempts
+ORDER BY failed_logins DESC, login_date DESC;
+
+-- Table access patterns for optimization
+SELECT 
+    database_name,
+    schema_name,
+    table_name,
+    COUNT(*) as access_count,
+    COUNT(DISTINCT user_name) as unique_users,
+    COUNT(DISTINCT DATE(start_time)) as days_accessed,
+    SUM(credits_used_cloud_services) as total_credits,
+    AVG(bytes_scanned) / POWER(1024, 3) as avg_gb_scanned,
+    MAX(start_time) as last_accessed
+FROM snowflake.account_usage.access_history
+WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    AND object_name IS NOT NULL
+GROUP BY database_name, schema_name, table_name
+ORDER BY access_count DESC
+LIMIT 50;
+
+-- Credit consumption summary for budget tracking
+SELECT 
+    DATE_TRUNC('week', start_time) as week_start,
+    warehouse_name,
+    SUM(credits_used) as weekly_credits,
+    COUNT(DISTINCT user_name) as active_users,
+    COUNT(*) as total_queries,
+    AVG(credits_used) as avg_credits_per_query,
+    warehouse_size
+FROM snowflake.account_usage.warehouse_metering_history
+WHERE start_time >= DATEADD(day, -90, CURRENT_TIMESTAMP())
+GROUP BY DATE_TRUNC('week', start_time), warehouse_name, warehouse_size
+ORDER BY week_start DESC, weekly_credits DESC;
+
+
+SELECT *
+FROM snowflake.account_usage.warehouse_metering_history
+
+select * from staged.tbl_logging;

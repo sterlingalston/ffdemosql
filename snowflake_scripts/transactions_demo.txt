@@ -1,0 +1,38 @@
+select count(1) from external.tbl_transaction_data;
+
+select count(1) from raw.tbl_transaction_data;
+
+list @staged.stg_azure;
+
+with tbl_something
+as
+(select hash(col1, col2, col3) as a_field
+from tbl_soemtg)
+
+row_number() over (partition_by a_field order by a_field) 
+count() avg()
+select * from db_malstonff
+
+
+with cte_tbl(
+select ...
+),
+
+cte_tbl2
+(select ... )
+
+select cte_tbl.field1, cte_tbl2.field_other
+from cte_tbl
+innser join
+cte_tbl 
+cte_tbl.asdfa = cte_tbl2
+using()
+
+create table tbl_name(
+
+col1         varchar primary key,
+col2ddddddd  number  not null,
+)
+
+select * from staged.tbl_logging
+order by query_datetime desc

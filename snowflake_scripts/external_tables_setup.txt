@@ -1,0 +1,255 @@
+-- modifying sysadmin role
+USE ROLE sysadmin;
+-- creating warehouse for staging
+CREATE warehouse IF NOT EXISTS development_wh warehouse_size = xsmall auto_suspend = 30 initially_suspended = true;
+-- adding storage integration
+-- Tenant ID: 317061ee-63f2-4dfd-a07e-5bd63e5b5fd7
+-- make sure to add credentials from SF acct to IAM within container!
+USE ROLE accountadmin;
+
+CREATE
+OR replace storage integration azure_integration type = external_stage storage_provider = 'azure' enabled = true azure_tenant_id = '317061ee-63f2-4dfd-a07e-5bd63e5b5fd7' storage_allowed_locations = (
+    'azure://strgmalstonffdemo.blob.core.windows.net/transactions'
+);
+
+
+CREATE OR REPLACE NOTIFICATION INTEGRATION transactions_added
+  ENABLED = true
+  TYPE = QUEUE
+  NOTIFICATION_PROVIDER = AZURE_STORAGE_QUEUE
+  AZURE_STORAGE_QUEUE_PRIMARY_URI = 'https://strgmalstonffdemo.queue.core.windows.net/que-storagemalstonff'
+  AZURE_TENANT_ID = '317061ee-63f2-4dfd-a07e-5bd63e5b5fd7';
+
+GRANT USAGE ON integration azure_integration TO ROLE sysadmin;
+GRANT USAGE ON integration transactions_added to role sysadmin;
+
+
+-- take creds from this to add to the IAM role
+describe storage integration azure_integration;
+describe notification integration transactions_added;
+
+CREATE
+OR replace stage stg_azure storage_integration = azure_integration url = 'azure://strgmalstonffdemo.blob.core.windows.net/transactions' directory = (enable = true);
+
+list @staged.stg_azure DROP FILE format EXTERNAL.ff_transactions;
+
+CREATE
+OR REPLACE FILE FORMAT staged.ff_transactions TYPE = CSV COMPRESSION = NONE TYPE = 'CSV' SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '\"' ENCODING = 'UTF-8';
+CREATE SCHEMA EXTERNAL;
+USE SCHEMA EXTERNAL;
+
+-- Snowflake DDL with all VARCHAR data types
+CREATE
+OR REPLACE TABLE raw.TBL_TRANSACTION_DATA (
+    transaction_id VARCHAR COMMENT 'Unique identifier for each transaction',
+    sender_account_id VARCHAR COMMENT 'Account ID of the sender',
+    receiver_account_id VARCHAR COMMENT 'Account ID of the receiver',
+    transaction_amount VARCHAR COMMENT 'Transaction amount in currency units (stored as string)',
+    transaction_type VARCHAR COMMENT 'Type of transaction (Transfer, Payment, etc.)',
+    transaction_timestamp VARCHAR COMMENT 'Timestamp when transaction occurred (stored as string)',
+    transaction_status VARCHAR COMMENT 'Current status of the transaction',
+    fraud_flag VARCHAR COMMENT 'Flag indicating if transaction is flagged for fraud (true/false)',
+    geolocation VARCHAR COMMENT 'Geographic location of transaction',
+    device_used VARCHAR COMMENT 'Device type used for transaction',
+    network_slice VARCHAR COMMENT 'Network slice identifier',
+    latency_ms VARCHAR COMMENT 'Network latency in milliseconds (stored as string)',
+    slice_bandwidth_mbps VARCHAR COMMENT 'Network slice bandwidth in Mbps (stored as string)',
+    pin_code VARCHAR COMMENT 'Hashed PIN code for security (stored as string)'
+) COMMENT = 'COLD Raw transaction data from source systems - all fields stored as VARCHAR';
+
+-- cold copy PIPE
+CREATE PIPE staged.pipe_transactions
+AUTO_INGEST= TRUE
+integration = 'TRANSACTIONS_ADDED'
+AS
+copy INTO raw.TBL_TRANSACTION_DATA
+FROM
+    @staged.stg_azure
+    file_format = 'staged.ff_transactions' 
+    pattern = '.*\\.csv$';
+
+select count(1) from raw.tbl_transaction_data;
+
+select * from 
+table(information_schema.PIPE_USAGE_HISTORY
+(pipe_name => 'staged.pipe_transactions'))
+
+
+select * from information_schema.pipes;
+-- create view to use to copy recent transactions into stage    
+CREATE
+    OR REPLACE VIEW staged.vw_new_transactions AS WITH cte_tbl_transaction_samples AS (
+        SELECT
+            row_number() OVER (
+                ORDER BY
+                    transaction_id DESC
+            ) AS record_id,
+            *
+        FROM
+            db_fiserve_shared.payments.transactions
+    )
+SELECT
+    *
+FROM
+    cte_tbl_transaction_samples
+WHERE
+    record_id < 10;
+
+-- sp for copying data into tbl_new_transactions_cp
+    
+    CREATE OR REPLACE PROCEDURE staged.sp_transactions_staged_copy()
+    RETURNS STRING
+    LANGUAGE PYTHON
+    RUNTIME_VERSION = '3.11'
+    PACKAGES = ('snowflake-snowpark-python')
+    HANDLER = 'transactions_staged_copy' COMMENT = 'Creates a table to export to stg_azure'
+    AS $$
+def transactions_staged_copy(session):
+    """
+    Creates a simple table with predefined structure
+    """
+    try:
+        create_sql = """
+CREATE
+	OR REPLACE TABLE db_malstonff.staged.tbl_new_transactions_cp 
+    
+    AS
+
+SELECT CONCAT('TXN',to_varchar(transaction_id)) as transaction_id,
+	CONCAT (
+		'ACC',
+		debit_account_id
+		) AS sender_acct_id,
+	CONCAT (
+		'ACC',
+		credit_account_id
+		) AS receiver_acct_id,
+	amount AS transaction_amt,
+	payment_type AS transaction_type,
+	transaction_date AS transaction_timestamp,
+	STATUS,
+	CASE 
+		WHEN UNIFORM(1, 1000, RANDOM()) = 7
+			THEN TRUE
+		ELSE FALSE
+		END AS fraud_flag,
+	NULL AS geolocation,
+	CASE 
+		WHEN UNIFORM(1, 2, RANDOM()) = 1
+			THEN 'Desktop'
+		ELSE 'Mobile'
+		END AS device_used,
+	NULL AS network_slice,
+	NULL AS latency_ms,
+    NULL as slice_bandwidth_mbps,
+	1111 AS pin_code
+FROM  db_malstonff.staged.vw_new_transactions
+        """
+        
+        # Execute the SQL
+        session.sql(create_sql).collect()
+        
+        return f"SUCCESS: Table db_malstonff.staged.tbl_new_transactions_cp created successfully"
+        
+    except Exception as e:
+        return f"ERROR: Failed to create table - {str(e)}"
+$$;
+
+
+--
+-- OPTIONAL!! Use External Tables for files in cloud storage
+--
+
+-- notification integration for snowflake
+
+
+use schema staged;
+
+show notification integrations;
+
+
+describe notification integration transactions_added;
+  
+-- setting up external table
+
+    -- OPTIONAL!! Use External Tables for files in cloud storage
+    create
+    or replace external TABLE external.TBL_TRANSACTION_DATA (
+        TRANSACTION_ID VARCHAR AS (value:c1::VARCHAR) COMMENT 'Unique identifier for each transaction',
+        SENDER_ACCOUNT_ID VARCHAR AS (value:c2::VARCHAR) COMMENT 'Account ID of the sender',
+        RECEIVER_ACCOUNT_ID VARCHAR AS (value:c3::VARCHAR) COMMENT 'Account ID of the receiver',
+        TRANSACTION_AMOUNT VARCHAR AS (value:c4::VARCHAR) COMMENT 'Transaction amount in currency units (stored as string)',
+        TRANSACTION_TYPE VARCHAR AS (value:c5::VARCHAR) COMMENT 'Type of transaction (Transfer, Payment, etc.)',
+        TRANSACTION_TIMESTAMP VARCHAR AS (value:c6::VARCHAR) COMMENT 'Timestamp when transaction occurred (stored as string)',
+        TRANSACTION_STATUS VARCHAR AS (value:c7::VARCHAR) COMMENT 'Current status of the transaction',
+        FRAUD_FLAG VARCHAR AS (value:c8::VARCHAR) COMMENT 'Flag indicating if transaction is flagged for fraud (true/false)',
+        GEOLOCATION VARCHAR AS (value:c9::VARCHAR) COMMENT 'Geographic location of transaction',
+        DEVICE_USED VARCHAR AS (value:c10::VARCHAR) COMMENT 'Device type used for transaction',
+        NETWORK_SLICE VARCHAR AS (value:c11::VARCHAR) COMMENT 'Network slice identifier',
+        LATENCY_MS VARCHAR AS (value:c12::VARCHAR) COMMENT 'Network latency in milliseconds (stored as string)',
+        SLICE_BANDWIDTH_MBPS VARCHAR AS (value:c13::VARCHAR) COMMENT 'Network slice bandwidth in Mbps (stored as string)',
+        PIN_CODE VARCHAR AS (value:c14::VARCHAR) COMMENT 'Hashed PIN code for security (stored as string)'
+    ) COMMENT = 'Raw transaction data from source systems - all fields stored as VARCHAR' LOCATION = @staged.stg_azure FILE_FORMAT = 'staged.ff_transactions' pattern = '.*\\.csv$' 
+    INTEGRATION = 'TRANSACTIONS_ADDED'
+    AUTO_REFRESH = TRUE;
+
+select count(1) from external.tbl_transaction_data
+
+
+    list @staged.stg_azure
+alter table
+    external.TBL_TRANSACTION_DATA
+SET
+    COMMENT = 'HOT raw transaction data from azure blob';
+CREATE
+    OR REPLACE SCHEMA RAW;
+create
+    or replace table raw.TBL_TRANSACTION_DATA(
+        TRANSACTION_ID VARCHAR COMMENT 'Unique identifier for each transaction',
+        SENDER_ACCOUNT_ID VARCHAR COMMENT 'Account ID of the sender',
+        RECEIVER_ACCOUNT_ID VARCHAR COMMENT 'Account ID of the receiver',
+        TRANSACTION_AMOUNT VARCHAR COMMENT 'Transaction amount in currency units (stored as string)',
+        TRANSACTION_TYPE VARCHAR COMMENT 'Type of transaction (Transfer, Payment, etc.)',
+        TRANSACTION_TIMESTAMP VARCHAR COMMENT 'Timestamp when transaction occurred (stored as string)',
+        TRANSACTION_STATUS VARCHAR COMMENT 'Current status of the transaction',
+        FRAUD_FLAG VARCHAR COMMENT 'Flag indicating if transaction is flagged for fraud (true/false)',
+        GEOLOCATION VARCHAR COMMENT 'Geographic location of transaction',
+        DEVICE_USED VARCHAR COMMENT 'Device type used for transaction',
+        NETWORK_SLICE VARCHAR COMMENT 'Network slice identifier',
+        LATENCY_MS VARCHAR COMMENT 'Network latency in milliseconds (stored as string)',
+        SLICE_BANDWIDTH_MBPS VARCHAR COMMENT 'Network slice bandwidth in Mbps (stored as string)',
+        PIN_CODE VARCHAR COMMENT 'Hashed PIN code for security (stored as string)'
+    ) COMMENT = 'COLD Raw transaction data from source systems - all fields stored as VARCHAR';
+    
+with cte_file_count
+as
+(SELECT    1 AS FILE_NAME
+FROM   @staged.stg_azure
+GROUP BY METADATA$FILENAME),
+
+cte_file_number
+as
+(select sum(file_name) as file_number
+from cte_file_count),
+the_location
+as
+
+(SELECT '@staged.stg_azure/')
+
+
+COPY INTO 
+    @staged.stg_azure/
+FROM
+    staged.tbl_new_transactions_cp 
+    FILE_FORMAT = (
+    FORMAT_NAME = 'staged.ff_transactions' 
+    COMPRESSION = NONE
+    FILE_EXTENSION = '.csv')
+    DETAILED_OUTPUT = TRUE
+    SINGLE = TRUE
+    ;
+
+    select count(1) from external.tbl_transaction_data;
+
+
+select 'hello' || 'world'

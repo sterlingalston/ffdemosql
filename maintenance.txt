@@ -1,0 +1,109 @@
+select * from table(information_schema.query_history())
+
+
+CREATE DATABASE IF NOT EXISTS db_ff_demo 
+CLONE db_ff_external_sql;
+
+
+use database db_ff_demo;
+
+CREATE OR REPLACE PROCEDURE staged.add_datetime_created_to_all_tables(
+    target_db STRING DEFAULT 'db_ff_demo',
+    column_name STRING DEFAULT 'datetime_created',
+    default_value DATETIME DEFAULT NULL
+)
+RETURNS STRING
+LANGUAGE JAVASCRIPT
+AS
+$$
+try {
+    var results = {
+        tablesProcessed: 0,
+        tablesSkipped: 0,
+        errors: []
+    };
+    
+    // Get all tables from all schemas in the database
+    var getTablesSQL = `
+        SELECT 
+            table_schema,
+            table_name
+        FROM ${TARGET_DB}.INFORMATION_SCHEMA.TABLES 
+        WHERE table_type = 'BASE TABLE'
+          AND table_schema != 'INFORMATION_SCHEMA'
+        ORDER BY table_schema, table_name
+    `;
+    
+    var stmt = snowflake.createStatement({sqlText: getTablesSQL});
+    var resultSet = stmt.execute();
+    
+    while (resultSet.next()) {
+        var schemaName = resultSet.getColumnValue(1);
+        var tableName = resultSet.getColumnValue(2);
+        var fullTableName = `${TARGET_DB}.${schemaName}.${tableName}`;
+        
+        try {
+            // Check if column already exists
+            var checkColumnSQL = `
+                SELECT COUNT(*) as col_count
+                FROM ${TARGET_DB}.INFORMATION_SCHEMA.COLUMNS 
+                WHERE table_schema = '${schemaName}' 
+                  AND table_name = '${tableName}' 
+                  AND column_name = '${COLUMN_NAME.toUpperCase()}'
+            `;
+            
+            var checkStmt = snowflake.createStatement({sqlText: checkColumnSQL});
+            var checkResult = checkStmt.execute();
+            checkResult.next();
+            var columnExists = checkResult.getColumnValue(1) > 0;
+            
+            if (columnExists) {
+                results.tablesSkipped++;
+                continue;
+            }
+            
+            // Add the column
+            var alterSQL = `
+                ALTER TABLE ${fullTableName} 
+                ADD COLUMN ${COLUMN_NAME} TIMESTAMP_LTZ
+            `;
+            
+            var alterStmt = snowflake.createStatement({sqlText: alterSQL});
+            alterStmt.execute();
+
+
+            // update the column
+            var alterSQL = `
+                UPDATE ${fullTableName} 
+                SET ${COLUMN_NAME} = CURRENT_TIMESTAMP()
+            `;
+            
+            var alterStmt = snowflake.createStatement({sqlText: alterSQL});
+            alterStmt.execute();
+            
+            results.tablesProcessed++;
+            
+        } catch (tableErr) {
+            results.errors.push(`Error processing ${fullTableName}: ${tableErr.message}`);
+        }
+    }
+    
+    var summary = `Processed ${results.tablesProcessed} tables, skipped ${results.tablesSkipped} tables (column already exists)`;
+    if (results.errors.length > 0) {
+        summary += `. Errors: ${results.errors.join('; ')}`;
+    }
+    
+    return summary;
+    
+} catch (err) {
+    return `Fatal error: ${err.message}`;
+}
+$$;
+
+-- Execute the procedure to add datetime_created to all tables
+CALL staged.add_datetime_created_to_all_tables();
+
+-- select current_timestamp()
+
+ALTER TABLE compliance.regulatory_reports
+                ADD COLUMN datetime_created TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()

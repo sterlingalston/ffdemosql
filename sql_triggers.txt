@@ -1,0 +1,393 @@
+-- =============================================================================
+-- SIMPLE TRIGGER CREATION SCRIPT
+-- Run the prerequisite validation script first!
+-- =============================================================================
+
+-- Create EventLog table
+IF OBJECT_ID('dbo.EventLog', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.EventLog (
+        EventID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        TableName NVARCHAR(128) NOT NULL,
+        SchemaName NVARCHAR(128) NOT NULL,
+        Operation NVARCHAR(10) NOT NULL,
+        RecordID NVARCHAR(50) NULL,
+        OldValues NVARCHAR(MAX) NULL,
+        NewValues NVARCHAR(MAX) NULL,
+        ChangeDate DATETIME2 DEFAULT GETUTCDATE(),
+        ChangedBy NVARCHAR(128) DEFAULT SUSER_SNAME(),
+        Processed BIT DEFAULT 0,
+        ProcessedDate DATETIME2 NULL
+    )
+    
+    CREATE INDEX IX_EventLog_Processed_ChangeDate ON dbo.EventLog (Processed, ChangeDate)
+    CREATE INDEX IX_EventLog_TableName_ChangeDate ON dbo.EventLog (TableName, ChangeDate)
+    
+    PRINT 'EventLog table created'
+END
+GO
+
+-- CORE.FINANCIAL_INSTITUTIONS Trigger
+IF OBJECT_ID('TR_FINANCIAL_INSTITUTIONS_EventLog', 'TR') IS NOT NULL
+    DROP TRIGGER TR_FINANCIAL_INSTITUTIONS_EventLog
+GO
+
+CREATE TRIGGER TR_FINANCIAL_INSTITUTIONS_EventLog
+ON CORE.FINANCIAL_INSTITUTIONS
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Operation NVARCHAR(10)
+    
+    IF EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+        SET @Operation = 'UPDATE'
+    ELSE IF EXISTS(SELECT 1 FROM inserted)
+        SET @Operation = 'INSERT'
+    ELSE
+        SET @Operation = 'DELETE'
+    
+    IF @Operation = 'INSERT'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, NewValues)
+        SELECT 
+            'CORE',
+            'FINANCIAL_INSTITUTIONS',
+            'INSERT',
+            CAST(INSTITUTION_ID AS NVARCHAR(50)),
+            (SELECT * FROM inserted i WHERE i.INSTITUTION_ID = inserted.INSTITUTION_ID FOR JSON AUTO)
+        FROM inserted
+    END
+    
+    IF @Operation = 'UPDATE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues, NewValues)
+        SELECT 
+            'CORE',
+            'FINANCIAL_INSTITUTIONS',
+            'UPDATE',
+            CAST(i.INSTITUTION_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.INSTITUTION_ID = i.INSTITUTION_ID FOR JSON AUTO),
+            (SELECT * FROM inserted ins WHERE ins.INSTITUTION_ID = i.INSTITUTION_ID FOR JSON AUTO)
+        FROM inserted i
+    END
+    
+    IF @Operation = 'DELETE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues)
+        SELECT 
+            'CORE',
+            'FINANCIAL_INSTITUTIONS',
+            'DELETE',
+            CAST(INSTITUTION_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.INSTITUTION_ID = deleted.INSTITUTION_ID FOR JSON AUTO)
+        FROM deleted
+    END
+END
+GO
+
+-- CORE.CUSTOMERS Trigger
+IF OBJECT_ID('TR_CUSTOMERS_EventLog', 'TR') IS NOT NULL
+    DROP TRIGGER TR_CUSTOMERS_EventLog
+GO
+
+CREATE TRIGGER TR_CUSTOMERS_EventLog
+ON CORE.CUSTOMERS
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Operation NVARCHAR(10)
+    
+    IF EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+        SET @Operation = 'UPDATE'
+    ELSE IF EXISTS(SELECT 1 FROM inserted)
+        SET @Operation = 'INSERT'
+    ELSE
+        SET @Operation = 'DELETE'
+    
+    IF @Operation = 'INSERT'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, NewValues)
+        SELECT 
+            'CORE',
+            'CUSTOMERS',
+            'INSERT',
+            CAST(CUSTOMER_ID AS NVARCHAR(50)),
+            (SELECT * FROM inserted i WHERE i.CUSTOMER_ID = inserted.CUSTOMER_ID FOR JSON AUTO)
+        FROM inserted
+    END
+    
+    IF @Operation = 'UPDATE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues, NewValues)
+        SELECT 
+            'CORE',
+            'CUSTOMERS',
+            'UPDATE',
+            CAST(i.CUSTOMER_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.CUSTOMER_ID = i.CUSTOMER_ID FOR JSON AUTO),
+            (SELECT * FROM inserted ins WHERE ins.CUSTOMER_ID = i.CUSTOMER_ID FOR JSON AUTO)
+        FROM inserted i
+    END
+    
+    IF @Operation = 'DELETE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues)
+        SELECT 
+            'CORE',
+            'CUSTOMERS',
+            'DELETE',
+            CAST(CUSTOMER_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.CUSTOMER_ID = deleted.CUSTOMER_ID FOR JSON AUTO)
+        FROM deleted
+    END
+END
+GO
+
+-- CORE.PRODUCT_TYPES Trigger
+IF OBJECT_ID('TR_PRODUCT_TYPES_EventLog', 'TR') IS NOT NULL
+    DROP TRIGGER TR_PRODUCT_TYPES_EventLog
+GO
+
+CREATE TRIGGER TR_PRODUCT_TYPES_EventLog
+ON CORE.PRODUCT_TYPES
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Operation NVARCHAR(10)
+    
+    IF EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+        SET @Operation = 'UPDATE'
+    ELSE IF EXISTS(SELECT 1 FROM inserted)
+        SET @Operation = 'INSERT'
+    ELSE
+        SET @Operation = 'DELETE'
+    
+    IF @Operation = 'INSERT'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, NewValues)
+        SELECT 
+            'CORE',
+            'PRODUCT_TYPES',
+            'INSERT',
+            CAST(PRODUCT_TYPE_ID AS NVARCHAR(50)),
+            (SELECT * FROM inserted i WHERE i.PRODUCT_TYPE_ID = inserted.PRODUCT_TYPE_ID FOR JSON AUTO)
+        FROM inserted
+    END
+    
+    IF @Operation = 'UPDATE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues, NewValues)
+        SELECT 
+            'CORE',
+            'PRODUCT_TYPES',
+            'UPDATE',
+            CAST(i.PRODUCT_TYPE_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.PRODUCT_TYPE_ID = i.PRODUCT_TYPE_ID FOR JSON AUTO),
+            (SELECT * FROM inserted ins WHERE ins.PRODUCT_TYPE_ID = i.PRODUCT_TYPE_ID FOR JSON AUTO)
+        FROM inserted i
+    END
+    
+    IF @Operation = 'DELETE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues)
+        SELECT 
+            'CORE',
+            'PRODUCT_TYPES',
+            'DELETE',
+            CAST(PRODUCT_TYPE_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.PRODUCT_TYPE_ID = deleted.PRODUCT_TYPE_ID FOR JSON AUTO)
+        FROM deleted
+    END
+END
+GO
+
+-- CORE.ACCOUNTS Trigger
+IF OBJECT_ID('TR_ACCOUNTS_EventLog', 'TR') IS NOT NULL
+    DROP TRIGGER TR_ACCOUNTS_EventLog
+GO
+
+CREATE TRIGGER TR_ACCOUNTS_EventLog
+ON CORE.ACCOUNTS
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Operation NVARCHAR(10)
+    
+    IF EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+        SET @Operation = 'UPDATE'
+    ELSE IF EXISTS(SELECT 1 FROM inserted)
+        SET @Operation = 'INSERT'
+    ELSE
+        SET @Operation = 'DELETE'
+    
+    IF @Operation = 'INSERT'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, NewValues)
+        SELECT 
+            'CORE',
+            'ACCOUNTS',
+            'INSERT',
+            CAST(ACCOUNT_ID AS NVARCHAR(50)),
+            (SELECT * FROM inserted i WHERE i.ACCOUNT_ID = inserted.ACCOUNT_ID FOR JSON AUTO)
+        FROM inserted
+    END
+    
+    IF @Operation = 'UPDATE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues, NewValues)
+        SELECT 
+            'CORE',
+            'ACCOUNTS',
+            'UPDATE',
+            CAST(i.ACCOUNT_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.ACCOUNT_ID = i.ACCOUNT_ID FOR JSON AUTO),
+            (SELECT * FROM inserted ins WHERE ins.ACCOUNT_ID = i.ACCOUNT_ID FOR JSON AUTO)
+        FROM inserted i
+    END
+    
+    IF @Operation = 'DELETE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues)
+        SELECT 
+            'CORE',
+            'ACCOUNTS',
+            'DELETE',
+            CAST(ACCOUNT_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.ACCOUNT_ID = deleted.ACCOUNT_ID FOR JSON AUTO)
+        FROM deleted
+    END
+END
+GO
+
+-- PAYMENTS.PAYMENT_NETWORKS Trigger
+IF OBJECT_ID('TR_PAYMENT_NETWORKS_EventLog', 'TR') IS NOT NULL
+    DROP TRIGGER TR_PAYMENT_NETWORKS_EventLog
+GO
+
+CREATE TRIGGER TR_PAYMENT_NETWORKS_EventLog
+ON PAYMENTS.PAYMENT_NETWORKS
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Operation NVARCHAR(10)
+    
+    IF EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+        SET @Operation = 'UPDATE'
+    ELSE IF EXISTS(SELECT 1 FROM inserted)
+        SET @Operation = 'INSERT'
+    ELSE
+        SET @Operation = 'DELETE'
+    
+    IF @Operation = 'INSERT'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, NewValues)
+        SELECT 
+            'PAYMENTS',
+            'PAYMENT_NETWORKS',
+            'INSERT',
+            CAST(NETWORK_ID AS NVARCHAR(50)),
+            (SELECT * FROM inserted i WHERE i.NETWORK_ID = inserted.NETWORK_ID FOR JSON AUTO)
+        FROM inserted
+    END
+    
+    IF @Operation = 'UPDATE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues, NewValues)
+        SELECT 
+            'PAYMENTS',
+            'PAYMENT_NETWORKS',
+            'UPDATE',
+            CAST(i.NETWORK_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.NETWORK_ID = i.NETWORK_ID FOR JSON AUTO),
+            (SELECT * FROM inserted ins WHERE ins.NETWORK_ID = i.NETWORK_ID FOR JSON AUTO)
+        FROM inserted i
+    END
+    
+    IF @Operation = 'DELETE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues)
+        SELECT 
+            'PAYMENTS',
+            'PAYMENT_NETWORKS',
+            'DELETE',
+            CAST(NETWORK_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.NETWORK_ID = deleted.NETWORK_ID FOR JSON AUTO)
+        FROM deleted
+    END
+END
+GO
+
+-- PAYMENTS.TRANSACTIONS Trigger
+IF OBJECT_ID('TR_TRANSACTIONS_EventLog', 'TR') IS NOT NULL
+    DROP TRIGGER TR_TRANSACTIONS_EventLog
+GO
+
+CREATE TRIGGER TR_TRANSACTIONS_EventLog
+ON PAYMENTS.TRANSACTIONS
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Operation NVARCHAR(10)
+    
+    IF EXISTS(SELECT 1 FROM inserted) AND EXISTS(SELECT 1 FROM deleted)
+        SET @Operation = 'UPDATE'
+    ELSE IF EXISTS(SELECT 1 FROM inserted)
+        SET @Operation = 'INSERT'
+    ELSE
+        SET @Operation = 'DELETE'
+    
+    IF @Operation = 'INSERT'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, NewValues)
+        SELECT 
+            'PAYMENTS',
+            'TRANSACTIONS',
+            'INSERT',
+            CAST(TRANSACTION_ID AS NVARCHAR(50)),
+            (SELECT * FROM inserted i WHERE i.TRANSACTION_ID = inserted.TRANSACTION_ID FOR JSON AUTO)
+        FROM inserted
+    END
+    
+    IF @Operation = 'UPDATE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues, NewValues)
+        SELECT 
+            'PAYMENTS',
+            'TRANSACTIONS',
+            'UPDATE',
+            CAST(i.TRANSACTION_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.TRANSACTION_ID = i.TRANSACTION_ID FOR JSON AUTO),
+            (SELECT * FROM inserted ins WHERE ins.TRANSACTION_ID = i.TRANSACTION_ID FOR JSON AUTO)
+        FROM inserted i
+    END
+    
+    IF @Operation = 'DELETE'
+    BEGIN
+        INSERT INTO dbo.EventLog (SchemaName, TableName, Operation, RecordID, OldValues)
+        SELECT 
+            'PAYMENTS',
+            'TRANSACTIONS',
+            'DELETE',
+            CAST(TRANSACTION_ID AS NVARCHAR(50)),
+            (SELECT * FROM deleted d WHERE d.TRANSACTION_ID = deleted.TRANSACTION_ID FOR JSON AUTO)
+        FROM deleted
+    END
+END
+GO
+
+PRINT 'Core and Payments triggers created successfully!'
+PRINT 'This script creates the first 6 triggers.'
+PRINT 'For remaining triggers (Cards, Digital, Risk, Compliance, Analytics), use the full trigger script.'
+PRINT 'You can test these triggers by inserting/updating/deleting records in the monitored tables.'

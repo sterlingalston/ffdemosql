@@ -1,0 +1,1643 @@
+create database db_malstonff;
+
+use database db_malstonff;
+
+create or replace schema staged;
+
+use schema staged;
+
+create stage stg;
+
+list @db_malstonff.staged.stg;
+
+remove @db_malstonff.staged.stg/fake_data.py;
+
+create database db_fiserve_shared;
+
+use database db_fiserve_shared;
+
+-- Fiserv-Style Demo Financial Services Database for Snowflake
+-- Sample database schema representing financial technology infrastructure
+-- This is educational demo data only and not based on actual Fiserv systems
+
+-- =============================================================================
+-- DATABASE AND SCHEMA CREATION
+-- =============================================================================
+
+-- Create database (uncomment if creating new database)
+-- CREATE DATABASE FISERV_DEMO;
+-- USE DATABASE FISERV_DEMO;
+
+-- Create schemas
+CREATE SCHEMA IF NOT EXISTS CORE;
+CREATE SCHEMA IF NOT EXISTS PAYMENTS;
+CREATE SCHEMA IF NOT EXISTS CARDS;
+CREATE SCHEMA IF NOT EXISTS DIGITAL;
+CREATE SCHEMA IF NOT EXISTS RISK;
+CREATE SCHEMA IF NOT EXISTS COMPLIANCE;
+CREATE SCHEMA IF NOT EXISTS ANALYTICS;
+
+-- =============================================================================
+-- CORE BANKING ENTITIES
+-- =============================================================================
+
+-- Financial Institutions (Banks/Credit Unions that use the platform)
+CREATE OR REPLACE TABLE CORE.FINANCIAL_INSTITUTIONS (
+    INSTITUTION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each financial institution using the platform',
+    INSTITUTION_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short alphanumeric code identifying the institution (e.g., FIRSTBANK, COMMCU)',
+    INSTITUTION_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Full legal name of the financial institution',
+    INSTITUTION_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of financial institution: Bank, Credit Union, Fintech, Investment Firm',
+    ROUTING_NUMBER VARCHAR(9) NOT NULL 
+        COMMENT 'ABA routing transit number for ACH and wire transfers (9 digits)',
+    SWIFT_CODE VARCHAR(11) 
+        COMMENT 'SWIFT/BIC code for international wire transfers (8-11 characters)',
+    ADDRESS VARCHAR(500) 
+        COMMENT 'Primary street address of institution headquarters',
+    CITY VARCHAR(100) 
+        COMMENT 'City where institution headquarters is located',
+    STATE VARCHAR(50) 
+        COMMENT 'State or province abbreviation (e.g., NY, CA, ON)',
+    ZIP_CODE VARCHAR(20) 
+        COMMENT 'Postal code for headquarters address',
+    COUNTRY VARCHAR(100) DEFAULT 'USA' 
+        COMMENT 'Country where institution is domiciled and regulated',
+    REGULATION_LEVEL VARCHAR(50) NOT NULL 
+        COMMENT 'Primary regulatory oversight level: Federal, State, Credit Union, International',
+    ASSETS_UNDER_MANAGEMENT NUMBER(18,2) 
+        COMMENT 'Total assets under management in USD (supports up to $999 trillion)',
+    CUSTOMER_COUNT NUMBER(38,0) 
+        COMMENT 'Total number of customers served by this institution',
+    PLATFORM_ONBOARD_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when institution was onboarded to the Fiserv platform',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current status: Active, Inactive, Suspended, Terminated',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when record was created',
+    
+    -- Primary key and unique constraints
+    CONSTRAINT PK_FINANCIAL_INSTITUTIONS PRIMARY KEY (INSTITUTION_ID),
+    CONSTRAINT UQ_FINANCIAL_INSTITUTIONS_CODE UNIQUE (INSTITUTION_CODE),
+    CONSTRAINT UQ_FINANCIAL_INSTITUTIONS_ROUTING UNIQUE (ROUTING_NUMBER)
+);
+
+-- Customer/Account Holders
+CREATE OR REPLACE TABLE CORE.CUSTOMERS (
+    CUSTOMER_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each customer across all institutions',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key reference to the financial institution serving this customer',
+    CUSTOMER_NUMBER VARCHAR(50) NOT NULL 
+        COMMENT 'Institution-specific customer identifier (unique within each institution)',
+    CUSTOMER_TYPE VARCHAR(20) NOT NULL 
+        COMMENT 'Type of customer: Individual, Business, Trust, Non-Profit, Government',
+    FIRST_NAME VARCHAR(100) 
+        COMMENT 'Given name for individual customers (null for business entities)',
+    LAST_NAME VARCHAR(100) 
+        COMMENT 'Family name for individual customers (null for business entities)',
+    BUSINESS_NAME VARCHAR(200) 
+        COMMENT 'Legal business name for business customers (null for individuals)',
+    DATE_OF_BIRTH DATE 
+        COMMENT 'Date of birth for individual customers (null for business entities)',
+    SSN_ENCRYPTED BINARY 
+        COMMENT 'Encrypted Social Security Number for individual US customers',
+    EIN_ENCRYPTED BINARY 
+        COMMENT 'Encrypted Employer Identification Number for business entities',
+    EMAIL VARCHAR(250) 
+        COMMENT 'Primary email address for customer communications',
+    PHONE VARCHAR(20) 
+        COMMENT 'Primary phone number in standard format (e.g., 555-123-4567)',
+    ADDRESS VARCHAR(500) 
+        COMMENT 'Primary mailing address street information',
+    CITY VARCHAR(100) 
+        COMMENT 'City for primary mailing address',
+    STATE VARCHAR(50) 
+        COMMENT 'State or province abbreviation for primary address',
+    ZIP_CODE VARCHAR(20) 
+        COMMENT 'Postal code for primary mailing address',
+    CREDIT_SCORE NUMBER(3,0) 
+        COMMENT 'Most recent credit score from bureau (typically 300-850 range)',
+    RISK_RATING VARCHAR(20) DEFAULT 'Medium' 
+        COMMENT 'Institution risk assessment: Low, Medium, High, Prohibited',
+    KYC_STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Know Your Customer verification status: Pending, Verified, Failed, Expired',
+    CUSTOMER_SINCE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when customer first became a customer of the institution',
+    LAST_LOGIN_DATE TIMESTAMP_NTZ 
+        COMMENT 'Most recent login to digital banking services',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current customer status: Active, Inactive, Suspended, Closed',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when customer record was created',
+    
+    CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID),
+    CONSTRAINT FK_CUSTOMERS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT UQ_CUSTOMERS_NUMBER UNIQUE (INSTITUTION_ID, CUSTOMER_NUMBER)
+);
+
+-- Account Types and Products
+CREATE OR REPLACE TABLE CORE.PRODUCT_TYPES (
+    PRODUCT_TYPE_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each banking product offered',
+    PRODUCT_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short alphanumeric code for the product (e.g., CHK001, SAV002)',
+    PRODUCT_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Marketing name for the banking product',
+    PRODUCT_CATEGORY VARCHAR(50) NOT NULL 
+        COMMENT 'Product category: Checking, Savings, Loan, Credit Card, Investment, Certificate',
+    INTEREST_RATE NUMBER(5,4) 
+        COMMENT 'Annual percentage rate as decimal (e.g., 0.0250 = 2.50% APR)',
+    MINIMUM_BALANCE NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Minimum balance required to avoid fees (in USD)',
+    MONTHLY_FEE NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Monthly maintenance fee charged if minimum balance not met (in USD)',
+    OVERDRAFT_FEE NUMBER(8,2) 
+        COMMENT 'Fee charged per overdraft occurrence (null if overdrafts not allowed)',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'Whether this product is currently offered to new customers',
+    
+    CONSTRAINT PK_PRODUCT_TYPES PRIMARY KEY (PRODUCT_TYPE_ID),
+    CONSTRAINT UQ_PRODUCT_TYPES_CODE UNIQUE (PRODUCT_CODE)
+);
+
+-- Customer Accounts
+CREATE OR REPLACE TABLE CORE.ACCOUNTS (
+    ACCOUNT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each customer account',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the financial institution holding this account',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer who owns this account',
+    PRODUCT_TYPE_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the product type this account represents',
+    ACCOUNT_NUMBER VARCHAR(50) NOT NULL 
+        COMMENT 'Institution-specific account number visible to customers',
+    ACCOUNT_NAME VARCHAR(200) 
+        COMMENT 'Customer-defined nickname for the account (e.g., "College Savings")',
+    CURRENT_BALANCE NUMBER(15,2) DEFAULT 0 
+        COMMENT 'Current account balance including all posted transactions (in USD)',
+    AVAILABLE_BALANCE NUMBER(15,2) DEFAULT 0 
+        COMMENT 'Available balance for withdrawals (current balance minus holds/pending)',
+    PENDING_BALANCE NUMBER(15,2) DEFAULT 0 
+        COMMENT 'Total amount of pending/unposted transactions affecting this account',
+    OVERDRAFT_LIMIT NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Maximum overdraft amount allowed (0 = no overdraft protection)',
+    INTEREST_RATE NUMBER(5,4) 
+        COMMENT 'Account-specific interest rate if different from product default',
+    OPEN_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when the account was opened',
+    LAST_TRANSACTION_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date of the most recent transaction affecting this account',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current account status: Active, Closed, Frozen, Restricted, Dormant',
+    CLOSE_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when account was closed (null for open accounts)',
+    CLOSE_REASON VARCHAR(100) 
+        COMMENT 'Reason for account closure if applicable',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when account record was created',
+    
+    CONSTRAINT PK_ACCOUNTS PRIMARY KEY (ACCOUNT_ID),
+    CONSTRAINT FK_ACCOUNTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_ACCOUNTS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID),
+    CONSTRAINT FK_ACCOUNTS_PRODUCT_TYPE FOREIGN KEY (PRODUCT_TYPE_ID) REFERENCES CORE.PRODUCT_TYPES(PRODUCT_TYPE_ID),
+    CONSTRAINT UQ_ACCOUNTS_NUMBER UNIQUE (INSTITUTION_ID, ACCOUNT_NUMBER)
+);
+
+-- =============================================================================
+-- PAYMENT PROCESSING
+-- =============================================================================
+
+-- Payment Networks and Processors
+CREATE OR REPLACE TABLE PAYMENTS.PAYMENT_NETWORKS (
+    NETWORK_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each payment network or processor',
+    NETWORK_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short code identifying the network (e.g., ACH, WIRE, RTP, ZELLE)',
+    NETWORK_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Full name of the payment network or processor',
+    NETWORK_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of network: ACH, Wire, RTP, Card Network, P2P, International',
+    PROCESSING_FEE NUMBER(8,4) 
+        COMMENT 'Standard processing fee charged per transaction (in USD)',
+    SETTLEMENT_TIME VARCHAR(50) 
+        COMMENT 'Typical settlement timeframe: Instant, Same Day, Next Day, 2-3 Days',
+    MAX_TRANSACTION_AMOUNT NUMBER(15,2) 
+        COMMENT 'Maximum transaction amount allowed on this network (in USD)',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'Whether this network is currently available for processing',
+    
+    CONSTRAINT PK_PAYMENT_NETWORKS PRIMARY KEY (NETWORK_ID),
+    CONSTRAINT UQ_PAYMENT_NETWORKS_CODE UNIQUE (NETWORK_CODE)
+);
+
+-- Payment Transactions
+CREATE OR REPLACE TABLE PAYMENTS.TRANSACTIONS (
+    TRANSACTION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each payment transaction',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the originating financial institution',
+    NETWORK_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the payment network used for processing',
+    TRANSACTION_NUMBER VARCHAR(50) NOT NULL 
+        COMMENT 'Institution-specific transaction number for customer reference',
+    PAYMENT_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Specific payment method: ACH Credit, ACH Debit, Wire, RTP, P2P, International',
+    DEBIT_ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to internal account being debited (null for external origination)',
+    CREDIT_ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to internal account being credited (null for external destination)',
+    EXTERNAL_ACCOUNT_NUMBER VARCHAR(50) 
+        COMMENT 'Account number at external financial institution',
+    EXTERNAL_ROUTING_NUMBER VARCHAR(9) 
+        COMMENT 'ABA routing number of external financial institution',
+    EXTERNAL_BANK_NAME VARCHAR(200) 
+        COMMENT 'Name of external financial institution',
+    AMOUNT NUMBER(15,2) NOT NULL 
+        COMMENT 'Transaction amount in specified currency (positive for all transactions)',
+    CURRENCY VARCHAR(3) DEFAULT 'USD' 
+        COMMENT 'ISO currency code (USD, EUR, GBP, CAD, etc.)',
+    TRANSACTION_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date and time when transaction was initiated',
+    EFFECTIVE_DATE DATE NOT NULL 
+        COMMENT 'Business date when transaction takes effect',
+    SETTLEMENT_DATE DATE 
+        COMMENT 'Date when funds are actually transferred between institutions',
+    STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Current status: Pending, Processing, Completed, Failed, Cancelled, Returned',
+    STATUS_REASON VARCHAR(200) 
+        COMMENT 'Detailed reason for current status (especially for failures/returns)',
+    DESCRIPTION VARCHAR(500) 
+        COMMENT 'Transaction description provided by originator',
+    REFERENCE VARCHAR(100) 
+        COMMENT 'Customer reference number or memo field',
+    PROCESSING_FEE NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Actual fee charged for processing this transaction (in USD)',
+    RISK_SCORE NUMBER(3,0) 
+        COMMENT 'Automated risk assessment score (0-100, higher = riskier)',
+    FRAUD_FLAG BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if transaction has been flagged for potential fraud',
+    COMPLIANCE_FLAG BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if transaction requires compliance review (AML, sanctions, etc.)',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when transaction record was created',
+    MODIFIED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when transaction record was last modified',
+    
+    CONSTRAINT PK_TRANSACTIONS PRIMARY KEY (TRANSACTION_ID),
+    CONSTRAINT FK_TRANSACTIONS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_TRANSACTIONS_NETWORK FOREIGN KEY (NETWORK_ID) REFERENCES PAYMENTS.PAYMENT_NETWORKS(NETWORK_ID),
+    CONSTRAINT FK_TRANSACTIONS_DEBIT_ACCOUNT FOREIGN KEY (DEBIT_ACCOUNT_ID) REFERENCES CORE.ACCOUNTS(ACCOUNT_ID),
+    CONSTRAINT FK_TRANSACTIONS_CREDIT_ACCOUNT FOREIGN KEY (CREDIT_ACCOUNT_ID) REFERENCES CORE.ACCOUNTS(ACCOUNT_ID),
+    CONSTRAINT UQ_TRANSACTIONS_NUMBER UNIQUE (INSTITUTION_ID, TRANSACTION_NUMBER)
+);
+
+-- =============================================================================
+-- CARD SERVICES
+-- =============================================================================
+
+-- Card Programs
+CREATE OR REPLACE TABLE CARDS.CARD_PROGRAMS (
+    PROGRAM_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each card program offered',
+    PROGRAM_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short alphanumeric code for the card program (e.g., DEB001, CC002)',
+    PROGRAM_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Marketing name for the card program',
+    CARD_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of card: Debit, Credit, Prepaid, Business, Corporate, Government',
+    CARD_NETWORK VARCHAR(20) NOT NULL 
+        COMMENT 'Card network/brand: Visa, Mastercard, Discover, American Express',
+    BIN VARCHAR(6) NOT NULL 
+        COMMENT 'Bank Identification Number - first 6 digits of card numbers in this program',
+    ANNUAL_FEE NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Annual fee charged to cardholders (in USD, 0 = no fee)',
+    INTEREST_RATE NUMBER(5,4) 
+        COMMENT 'Annual percentage rate for credit cards (null for debit/prepaid)',
+    CASH_ADVANCE_FEE NUMBER(5,4) 
+        COMMENT 'Fee rate for cash advances as percentage of amount',
+    FOREIGN_TRANSACTION_FEE NUMBER(5,4) 
+        COMMENT 'Fee rate for foreign currency transactions as percentage',
+    REWARDS_PROGRAM VARCHAR(100) 
+        COMMENT 'Description of rewards program if applicable',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'Whether new cards can be issued under this program',
+    
+    CONSTRAINT PK_CARD_PROGRAMS PRIMARY KEY (PROGRAM_ID),
+    CONSTRAINT UQ_CARD_PROGRAMS_CODE UNIQUE (PROGRAM_CODE)
+);
+
+-- Card Accounts
+CREATE OR REPLACE TABLE CARDS.CARD_ACCOUNTS (
+    CARD_ACCOUNT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each card account',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the financial institution issuing the card',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer who owns this card',
+    PROGRAM_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the card program this card belongs to',
+    LINKED_ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to linked deposit account (for debit cards)',
+    CARD_NUMBER_ENCRYPTED BINARY NOT NULL 
+        COMMENT 'Encrypted full card number (PCI DSS compliant storage)',
+    CARD_NUMBER_MASKED VARCHAR(20) NOT NULL 
+        COMMENT 'Masked card number showing only last 4 digits (e.g., ****-****-****-1234)',
+    EXPIRATION_DATE VARCHAR(5) NOT NULL 
+        COMMENT 'Card expiration in MM/YY format',
+    CVV_ENCRYPTED BINARY 
+        COMMENT 'Encrypted card verification value (3-4 digits)',
+    CARD_HOLDER_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Name embossed on the card',
+    CREDIT_LIMIT NUMBER(12,2) 
+        COMMENT 'Credit limit for credit cards (null for debit/prepaid)',
+    AVAILABLE_CREDIT NUMBER(12,2) 
+        COMMENT 'Available credit remaining (credit limit minus current balance)',
+    CURRENT_BALANCE NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Current balance owed on credit cards (in USD)',
+    MINIMUM_PAYMENT NUMBER(10,2) DEFAULT 0 
+        COMMENT 'Minimum payment due on next statement (credit cards only)',
+    LAST_PAYMENT_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date of most recent payment received (credit cards)',
+    NEXT_PAYMENT_DUE DATE 
+        COMMENT 'Due date for next minimum payment (credit cards)',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current card status: Active, Blocked, Expired, Cancelled, Lost, Stolen',
+    ISSUE_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when card was first issued',
+    ACTIVATION_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when customer activated the card',
+    BLOCK_REASON VARCHAR(200) 
+        COMMENT 'Reason why card was blocked if applicable',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when card record was created',
+    
+    CONSTRAINT PK_CARD_ACCOUNTS PRIMARY KEY (CARD_ACCOUNT_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_PROGRAM FOREIGN KEY (PROGRAM_ID) REFERENCES CARDS.CARD_PROGRAMS(PROGRAM_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_LINKED_ACCOUNT FOREIGN KEY (LINKED_ACCOUNT_ID) REFERENCES CORE.ACCOUNTS(ACCOUNT_ID)
+);
+
+-- Card Transactions
+CREATE OR REPLACE TABLE CARDS.CARD_TRANSACTIONS (
+    CARD_TRANSACTION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each card transaction',
+    CARD_ACCOUNT_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the card account used for this transaction',
+    TRANSACTION_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of transaction: Purchase, ATM Withdrawal, Cash Advance, Payment, Fee, Refund',
+    AMOUNT NUMBER(12,2) NOT NULL 
+        COMMENT 'Transaction amount in specified currency (always positive)',
+    CURRENCY VARCHAR(3) DEFAULT 'USD' 
+        COMMENT 'ISO currency code for the transaction',
+    MERCHANT_NAME VARCHAR(200) 
+        COMMENT 'Name of merchant where transaction occurred',
+    MERCHANT_CATEGORY VARCHAR(100) 
+        COMMENT 'Merchant category code description (e.g., Gas Stations, Restaurants)',
+    MERCHANT_ID VARCHAR(50) 
+        COMMENT 'Unique merchant identifier assigned by card processor',
+    TRANSACTION_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date and time when transaction was authorized',
+    POSTING_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when transaction was posted to account balance',
+    AUTHORIZATION_CODE VARCHAR(20) 
+        COMMENT 'Authorization code returned by card network',
+    NETWORK_TRANSACTION_ID VARCHAR(50) 
+        COMMENT 'Unique transaction identifier assigned by card network',
+    STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Current status: Pending, Posted, Declined, Disputed, Reversed',
+    DECLINE_REASON VARCHAR(200) 
+        COMMENT 'Reason for decline if transaction was not approved',
+    LOCATION VARCHAR(200) 
+        COMMENT 'Geographic location where transaction occurred',
+    COUNTRY VARCHAR(100) 
+        COMMENT 'Country where transaction occurred',
+    RISK_SCORE NUMBER(3,0) 
+        COMMENT 'Fraud risk assessment score (0-100, higher = riskier)',
+    FRAUD_FLAG BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if transaction has been flagged as potentially fraudulent',
+    REWARDS_EARNED NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Rewards points or cash back earned from this transaction',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when transaction record was created',
+    
+    CONSTRAINT PK_CARD_TRANSACTIONS PRIMARY KEY (CARD_TRANSACTION_ID),
+    CONSTRAINT FK_CARD_TRANSACTIONS_CARD_ACCOUNT FOREIGN KEY (CARD_ACCOUNT_ID) REFERENCES CARDS.CARD_ACCOUNTS(CARD_ACCOUNT_ID)
+);
+
+-- =============================================================================
+-- DIGITAL BANKING
+-- =============================================================================
+
+-- Digital Banking Users
+CREATE OR REPLACE TABLE DIGITAL.DIGITAL_USERS (
+    USER_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each digital banking user',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer record this digital user represents',
+    USERNAME VARCHAR(100) NOT NULL 
+        COMMENT 'Unique username for digital banking login',
+    PASSWORD_HASH BINARY NOT NULL 
+        COMMENT 'Cryptographically hashed password (never store plain text)',
+    EMAIL VARCHAR(250) NOT NULL 
+        COMMENT 'Email address for digital banking communications',
+    MOBILE_PHONE VARCHAR(20) 
+        COMMENT 'Mobile phone number for SMS notifications and 2FA',
+    LAST_LOGIN_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date and time of most recent successful login',
+    LOGIN_ATTEMPTS NUMBER(3,0) DEFAULT 0 
+        COMMENT 'Number of consecutive failed login attempts',
+    IS_LOCKED BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if account is temporarily locked due to failed login attempts',
+    LOCKOUT_END_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when account lockout expires (null if not locked)',
+    TWO_FACTOR_ENABLED BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if two-factor authentication is enabled for this user',
+    PREFERRED_NOTIFICATION_METHOD VARCHAR(20) DEFAULT 'Email' 
+        COMMENT 'Preferred method for notifications: Email, SMS, Push, In-App',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current user status: Active, Inactive, Suspended, Terminated',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when user account was created',
+    
+    CONSTRAINT PK_DIGITAL_USERS PRIMARY KEY (USER_ID),
+    CONSTRAINT FK_DIGITAL_USERS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID),
+    CONSTRAINT UQ_DIGITAL_USERS_USERNAME UNIQUE (USERNAME),
+    CONSTRAINT UQ_DIGITAL_USERS_EMAIL UNIQUE (EMAIL)
+);
+
+-- Digital Banking Sessions
+CREATE OR REPLACE TABLE DIGITAL.USER_SESSIONS (
+    SESSION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each user login session',
+    USER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the digital user who owns this session',
+    SESSION_TOKEN VARCHAR(500) NOT NULL 
+        COMMENT 'Encrypted session token used for authentication',
+    DEVICE_TYPE VARCHAR(50) 
+        COMMENT 'Type of device used: Web Browser, Mobile App, Tablet App, API',
+    DEVICE_ID VARCHAR(200) 
+        COMMENT 'Unique identifier for the device (if available)',
+    IP_ADDRESS VARCHAR(45) 
+        COMMENT 'IP address from which session was initiated (IPv4 or IPv6)',
+    USER_AGENT VARCHAR(500) 
+        COMMENT 'Browser/app user agent string for security analysis',
+    START_TIME TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time when session was initiated',
+    LAST_ACTIVITY TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time of most recent activity in this session',
+    END_TIME TIMESTAMP_NTZ 
+        COMMENT 'Date and time when session was terminated (null for active sessions)',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current session status: Active, Expired, Terminated, Timeout',
+    
+    CONSTRAINT PK_USER_SESSIONS PRIMARY KEY (SESSION_ID),
+    CONSTRAINT FK_USER_SESSIONS_USER FOREIGN KEY (USER_ID) REFERENCES DIGITAL.DIGITAL_USERS(USER_ID)
+);
+
+-- Bill Pay Payees
+CREATE OR REPLACE TABLE DIGITAL.BILL_PAY_PAYEES (
+    PAYEE_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each bill pay payee',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer who set up this payee',
+    PAYEE_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Name of company or individual being paid',
+    PAYEE_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Category of payee: Utility, Credit Card, Loan, Insurance, Tax, Other',
+    ACCOUNT_NUMBER VARCHAR(100) 
+        COMMENT 'Account number with the payee for payment identification',
+    ADDRESS VARCHAR(500) 
+        COMMENT 'Mailing address for the payee',
+    CITY VARCHAR(100) 
+        COMMENT 'City for payee address',
+    STATE VARCHAR(50) 
+        COMMENT 'State or province for payee address',
+    ZIP_CODE VARCHAR(20) 
+        COMMENT 'Postal code for payee address',
+    PHONE VARCHAR(20) 
+        COMMENT 'Customer service phone number for the payee',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'True if payee is currently available for payments',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when payee was added',
+    
+    CONSTRAINT PK_BILL_PAY_PAYEES PRIMARY KEY (PAYEE_ID),
+    CONSTRAINT FK_BILL_PAY_PAYEES_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID)
+);
+
+-- =============================================================================
+-- RISK MANAGEMENT
+-- =============================================================================
+
+-- Risk Rules and Models
+CREATE OR REPLACE TABLE RISK.RISK_RULES (
+    RULE_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each risk detection rule',
+    RULE_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Descriptive name for the risk rule',
+    RULE_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Category of risk: Fraud Detection, AML, Credit Risk, Operational Risk, Cyber Security',
+    RULE_DESCRIPTION VARCHAR(500) 
+        COMMENT 'Detailed description of what triggers this rule',
+    RISK_SCORE NUMBER(3,0) NOT NULL 
+        COMMENT 'Risk score assigned when rule triggers (1-100 scale, higher = riskier)',
+    SEVERITY VARCHAR(20) NOT NULL 
+        COMMENT 'Risk severity level: Low, Medium, High, Critical',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'True if rule is currently being evaluated',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when rule was created',
+    
+    CONSTRAINT PK_RISK_RULES PRIMARY KEY (RULE_ID)
+);
+
+-- Risk Events and Alerts
+CREATE OR REPLACE TABLE RISK.RISK_EVENTS (
+    EVENT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each risk event detected',
+    RULE_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the risk rule that triggered this event',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the institution where event occurred',
+    CUSTOMER_ID NUMBER 
+        COMMENT 'Foreign key to customer involved (null for system-wide events)',
+    ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to specific account involved (if applicable)',
+    TRANSACTION_ID NUMBER 
+        COMMENT 'Foreign key to payment transaction that triggered event (if applicable)',
+    CARD_TRANSACTION_ID NUMBER 
+        COMMENT 'Foreign key to card transaction that triggered event (if applicable)',
+    EVENT_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of event: Fraud Alert, AML Alert, Credit Risk, Operational Risk',
+    EVENT_DESCRIPTION VARCHAR(500) 
+        COMMENT 'Detailed description of the risk event detected',
+    RISK_SCORE NUMBER(3,0) NOT NULL 
+        COMMENT 'Calculated risk score for this specific event (1-100)',
+    SEVERITY VARCHAR(20) NOT NULL 
+        COMMENT 'Event severity: Low, Medium, High, Critical',
+    STATUS VARCHAR(20) DEFAULT 'Open' 
+        COMMENT 'Current status: Open, Under Review, False Positive, Confirmed, Resolved',
+    ASSIGNED_TO VARCHAR(100) 
+        COMMENT 'Name or ID of person assigned to investigate this event',
+    RESOLUTION_NOTES VARCHAR(1000) 
+        COMMENT 'Notes documenting investigation and resolution',
+    EVENT_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time when risk event was detected',
+    RESOLVED_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date and time when event was resolved (null if still open)',
+    
+    CONSTRAINT PK_RISK_EVENTS PRIMARY KEY (EVENT_ID),
+    CONSTRAINT FK_RISK_EVENTS_RULE FOREIGN KEY (RULE_ID) REFERENCES RISK.RISK_RULES(RULE_ID),
+    CONSTRAINT FK_RISK_EVENTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_RISK_EVENTS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID)
+);
+
+-- =============================================================================
+-- COMPLIANCE AND REGULATORY
+-- =============================================================================
+
+-- Regulatory Reports
+CREATE OR REPLACE TABLE COMPLIANCE.REGULATORY_REPORTS (
+    REPORT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each regulatory report filed',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to institution filing the report',
+    REPORT_TYPE VARCHAR(100) NOT NULL 
+        COMMENT 'Type of report: CTR, SAR, OFAC, CRA, BSA, Call Report, 5300, etc.',
+    REPORTING_PERIOD VARCHAR(50) NOT NULL 
+        COMMENT 'Period covered by report (e.g., Q1 2024, January 2024, Annual 2023)',
+    REGULATOR_ID VARCHAR(50) NOT NULL 
+        COMMENT 'Regulatory agency: FinCEN, FDIC, NCUA, OCC, Fed, CFPB, etc.',
+    STATUS VARCHAR(20) DEFAULT 'Draft' 
+        COMMENT 'Report status: Draft, Submitted, Acknowledged, Under Review, Accepted',
+    SUBMISSION_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when report was submitted to regulator',
+    DUE_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Regulatory deadline for report submission',
+    FILE_PATH VARCHAR(500) 
+        COMMENT 'Path to report file in secure storage system',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when report record was created',
+    
+    CONSTRAINT PK_REGULATORY_REPORTS PRIMARY KEY (REPORT_ID),
+    CONSTRAINT FK_REGULATORY_REPORTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID)
+);
+
+-- OFAC/Sanctions Screening
+CREATE OR REPLACE TABLE COMPLIANCE.SANCTIONS_SCREENING (
+    SCREENING_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each sanctions screening performed',
+    CUSTOMER_ID NUMBER 
+        COMMENT 'Foreign key to customer being screened (if applicable)',
+    TRANSACTION_ID NUMBER 
+        COMMENT 'Foreign key to transaction being screened (if applicable)',
+    ENTITY_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Name of person or entity being screened against sanctions lists',
+    SCREENING_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'When screening occurred: Customer Onboarding, Transaction, Periodic Review, Ad-Hoc',
+    MATCH_TYPE VARCHAR(50) 
+        COMMENT 'Type of match found: Exact, Fuzzy, Partial, Alias, False Positive',
+    MATCH_SCORE NUMBER(5,2) 
+        COMMENT 'Confidence score for match (0.00-100.00, higher = more confident)',
+    LIST_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Sanctions list checked: OFAC SDN, EU Sanctions, UN Sanctions, PEP List',
+    STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Screening status: Pending, Clear, Hit, False Positive, Under Review',
+    REVIEW_NOTES VARCHAR(1000) 
+        COMMENT 'Notes from manual review of screening results',
+    SCREENING_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time when screening was performed',
+    REVIEWED_BY VARCHAR(100) 
+        COMMENT 'Name or ID of compliance officer who reviewed the screening',
+    REVIEWED_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when manual review was completed',
+    
+    CONSTRAINT PK_SANCTIONS_SCREENING PRIMARY KEY (SCREENING_ID),
+    CONSTRAINT FK_SANCTIONS_SCREENING_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID)
+);
+
+-- =============================================================================
+-- ANALYTICS AND REPORTING
+-- =============================================================================
+
+-- Business Intelligence Metrics
+CREATE OR REPLACE TABLE ANALYTICS.DAILY_METRICS (
+    METRIC_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each daily metrics record',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to institution these metrics represent',
+    METRIC_DATE DATE NOT NULL 
+        COMMENT 'Business date for which metrics are calculated',
+    TOTAL_TRANSACTIONS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Total number of transactions processed on this date',
+    TOTAL_TRANSACTION_VOLUME NUMBER(18,2) DEFAULT 0 
+        COMMENT 'Total dollar volume of all transactions processed (in USD)',
+    TOTAL_CUSTOMERS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Total number of active customers as of this date',
+    NEW_CUSTOMERS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of new customers acquired on this date',
+    ACTIVE_DIGITAL_USERS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of customers who logged into digital banking on this date',
+    TOTAL_DEPOSITS NUMBER(18,2) DEFAULT 0 
+        COMMENT 'Total deposits across all accounts as of end of day (in USD)',
+    TOTAL_LOANS NUMBER(18,2) DEFAULT 0 
+        COMMENT 'Total outstanding loan balances as of end of day (in USD)',
+    FRAUD_DETECTED_COUNT NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of transactions flagged for fraud on this date',
+    FRAUD_LOSS_AMOUNT NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Total confirmed fraud losses on this date (in USD)',
+    COMPLIANCE_ALERTS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of compliance alerts generated on this date',
+    SYSTEM_UPTIME NUMBER(5,2) DEFAULT 100.00 
+        COMMENT 'System availability percentage for this date (0.00-100.00)',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when metrics record was created',
+    
+    CONSTRAINT PK_DAILY_METRICS PRIMARY KEY (METRIC_ID),
+    CONSTRAINT FK_DAILY_METRICS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT UQ_DAILY_METRICS_DATE UNIQUE (INSTITUTION_ID, METRIC_DATE)
+);
+
+-- =============================================================================
+-- CLUSTERING AND OPTIMIZATION
+-- =============================================================================
+-- Fiserv-Style Demo Financial Services Database for Snowflake
+-- Sample database schema representing financial technology infrastructure
+-- This is educational demo data only and not based on actual Fiserv systems
+
+-- =============================================================================
+-- DATABASE AND SCHEMA CREATION
+-- =============================================================================
+
+-- Create database (uncomment if creating new database)
+-- CREATE DATABASE FISERV_DEMO;
+-- USE DATABASE FISERV_DEMO;
+
+-- Create schemas
+CREATE SCHEMA IF NOT EXISTS CORE;
+CREATE SCHEMA IF NOT EXISTS PAYMENTS;
+CREATE SCHEMA IF NOT EXISTS CARDS;
+CREATE SCHEMA IF NOT EXISTS DIGITAL;
+CREATE SCHEMA IF NOT EXISTS RISK;
+CREATE SCHEMA IF NOT EXISTS COMPLIANCE;
+CREATE SCHEMA IF NOT EXISTS ANALYTICS;
+
+-- =============================================================================
+-- CORE BANKING ENTITIES
+-- =============================================================================
+
+-- Financial Institutions (Banks/Credit Unions that use the platform)
+CREATE OR REPLACE TABLE CORE.FINANCIAL_INSTITUTIONS (
+    INSTITUTION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each financial institution using the platform',
+    INSTITUTION_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short alphanumeric code identifying the institution (e.g., FIRSTBANK, COMMCU)',
+    INSTITUTION_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Full legal name of the financial institution',
+    INSTITUTION_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of financial institution: Bank, Credit Union, Fintech, Investment Firm',
+    ROUTING_NUMBER VARCHAR(9) NOT NULL 
+        COMMENT 'ABA routing transit number for ACH and wire transfers (9 digits)',
+    SWIFT_CODE VARCHAR(11) 
+        COMMENT 'SWIFT/BIC code for international wire transfers (8-11 characters)',
+    ADDRESS VARCHAR(500) 
+        COMMENT 'Primary street address of institution headquarters',
+    CITY VARCHAR(100) 
+        COMMENT 'City where institution headquarters is located',
+    STATE VARCHAR(50) 
+        COMMENT 'State or province abbreviation (e.g., NY, CA, ON)',
+    ZIP_CODE VARCHAR(20) 
+        COMMENT 'Postal code for headquarters address',
+    COUNTRY VARCHAR(100) DEFAULT 'USA' 
+        COMMENT 'Country where institution is domiciled and regulated',
+    REGULATION_LEVEL VARCHAR(50) NOT NULL 
+        COMMENT 'Primary regulatory oversight level: Federal, State, Credit Union, International',
+    ASSETS_UNDER_MANAGEMENT NUMBER(18,2) 
+        COMMENT 'Total assets under management in USD (supports up to $999 trillion)',
+    CUSTOMER_COUNT NUMBER(38,0) 
+        COMMENT 'Total number of customers served by this institution',
+    PLATFORM_ONBOARD_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when institution was onboarded to the Fiserv platform',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current status: Active, Inactive, Suspended, Terminated',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when record was created',
+    
+    -- Primary key and unique constraints
+    CONSTRAINT PK_FINANCIAL_INSTITUTIONS PRIMARY KEY (INSTITUTION_ID),
+    CONSTRAINT UQ_FINANCIAL_INSTITUTIONS_CODE UNIQUE (INSTITUTION_CODE),
+    CONSTRAINT UQ_FINANCIAL_INSTITUTIONS_ROUTING UNIQUE (ROUTING_NUMBER)
+);
+
+-- Customer/Account Holders
+CREATE OR REPLACE TABLE CORE.CUSTOMERS (
+    CUSTOMER_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each customer across all institutions',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key reference to the financial institution serving this customer',
+    CUSTOMER_NUMBER VARCHAR(50) NOT NULL 
+        COMMENT 'Institution-specific customer identifier (unique within each institution)',
+    CUSTOMER_TYPE VARCHAR(20) NOT NULL 
+        COMMENT 'Type of customer: Individual, Business, Trust, Non-Profit, Government',
+    FIRST_NAME VARCHAR(100) 
+        COMMENT 'Given name for individual customers (null for business entities)',
+    LAST_NAME VARCHAR(100) 
+        COMMENT 'Family name for individual customers (null for business entities)',
+    BUSINESS_NAME VARCHAR(200) 
+        COMMENT 'Legal business name for business customers (null for individuals)',
+    DATE_OF_BIRTH DATE 
+        COMMENT 'Date of birth for individual customers (null for business entities)',
+    SSN_ENCRYPTED BINARY 
+        COMMENT 'Encrypted Social Security Number for individual US customers',
+    EIN_ENCRYPTED BINARY 
+        COMMENT 'Encrypted Employer Identification Number for business entities',
+    EMAIL VARCHAR(250) 
+        COMMENT 'Primary email address for customer communications',
+    PHONE VARCHAR(20) 
+        COMMENT 'Primary phone number in standard format (e.g., 555-123-4567)',
+    ADDRESS VARCHAR(500) 
+        COMMENT 'Primary mailing address street information',
+    CITY VARCHAR(100) 
+        COMMENT 'City for primary mailing address',
+    STATE VARCHAR(50) 
+        COMMENT 'State or province abbreviation for primary address',
+    ZIP_CODE VARCHAR(20) 
+        COMMENT 'Postal code for primary mailing address',
+    CREDIT_SCORE NUMBER(3,0) 
+        COMMENT 'Most recent credit score from bureau (typically 300-850 range)',
+    RISK_RATING VARCHAR(20) DEFAULT 'Medium' 
+        COMMENT 'Institution risk assessment: Low, Medium, High, Prohibited',
+    KYC_STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Know Your Customer verification status: Pending, Verified, Failed, Expired',
+    CUSTOMER_SINCE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when customer first became a customer of the institution',
+    LAST_LOGIN_DATE TIMESTAMP_NTZ 
+        COMMENT 'Most recent login to digital banking services',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current customer status: Active, Inactive, Suspended, Closed',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when customer record was created',
+    
+    CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID),
+    CONSTRAINT FK_CUSTOMERS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT UQ_CUSTOMERS_NUMBER UNIQUE (INSTITUTION_ID, CUSTOMER_NUMBER)
+);
+
+-- Account Types and Products
+CREATE OR REPLACE TABLE CORE.PRODUCT_TYPES (
+    PRODUCT_TYPE_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each banking product offered',
+    PRODUCT_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short alphanumeric code for the product (e.g., CHK001, SAV002)',
+    PRODUCT_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Marketing name for the banking product',
+    PRODUCT_CATEGORY VARCHAR(50) NOT NULL 
+        COMMENT 'Product category: Checking, Savings, Loan, Credit Card, Investment, Certificate',
+    INTEREST_RATE NUMBER(5,4) 
+        COMMENT 'Annual percentage rate as decimal (e.g., 0.0250 = 2.50% APR)',
+    MINIMUM_BALANCE NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Minimum balance required to avoid fees (in USD)',
+    MONTHLY_FEE NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Monthly maintenance fee charged if minimum balance not met (in USD)',
+    OVERDRAFT_FEE NUMBER(8,2) 
+        COMMENT 'Fee charged per overdraft occurrence (null if overdrafts not allowed)',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'Whether this product is currently offered to new customers',
+    
+    CONSTRAINT PK_PRODUCT_TYPES PRIMARY KEY (PRODUCT_TYPE_ID),
+    CONSTRAINT UQ_PRODUCT_TYPES_CODE UNIQUE (PRODUCT_CODE)
+);
+
+-- Customer Accounts
+CREATE OR REPLACE TABLE CORE.ACCOUNTS (
+    ACCOUNT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each customer account',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the financial institution holding this account',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer who owns this account',
+    PRODUCT_TYPE_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the product type this account represents',
+    ACCOUNT_NUMBER VARCHAR(50) NOT NULL 
+        COMMENT 'Institution-specific account number visible to customers',
+    ACCOUNT_NAME VARCHAR(200) 
+        COMMENT 'Customer-defined nickname for the account (e.g., "College Savings")',
+    CURRENT_BALANCE NUMBER(15,2) DEFAULT 0 
+        COMMENT 'Current account balance including all posted transactions (in USD)',
+    AVAILABLE_BALANCE NUMBER(15,2) DEFAULT 0 
+        COMMENT 'Available balance for withdrawals (current balance minus holds/pending)',
+    PENDING_BALANCE NUMBER(15,2) DEFAULT 0 
+        COMMENT 'Total amount of pending/unposted transactions affecting this account',
+    OVERDRAFT_LIMIT NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Maximum overdraft amount allowed (0 = no overdraft protection)',
+    INTEREST_RATE NUMBER(5,4) 
+        COMMENT 'Account-specific interest rate if different from product default',
+    OPEN_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when the account was opened',
+    LAST_TRANSACTION_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date of the most recent transaction affecting this account',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current account status: Active, Closed, Frozen, Restricted, Dormant',
+    CLOSE_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when account was closed (null for open accounts)',
+    CLOSE_REASON VARCHAR(100) 
+        COMMENT 'Reason for account closure if applicable',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when account record was created',
+    
+    CONSTRAINT PK_ACCOUNTS PRIMARY KEY (ACCOUNT_ID),
+    CONSTRAINT FK_ACCOUNTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_ACCOUNTS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID),
+    CONSTRAINT FK_ACCOUNTS_PRODUCT_TYPE FOREIGN KEY (PRODUCT_TYPE_ID) REFERENCES CORE.PRODUCT_TYPES(PRODUCT_TYPE_ID),
+    CONSTRAINT UQ_ACCOUNTS_NUMBER UNIQUE (INSTITUTION_ID, ACCOUNT_NUMBER)
+);
+
+-- =============================================================================
+-- PAYMENT PROCESSING
+-- =============================================================================
+
+-- Payment Networks and Processors
+CREATE OR REPLACE TABLE PAYMENTS.PAYMENT_NETWORKS (
+    NETWORK_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each payment network or processor',
+    NETWORK_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short code identifying the network (e.g., ACH, WIRE, RTP, ZELLE)',
+    NETWORK_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Full name of the payment network or processor',
+    NETWORK_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of network: ACH, Wire, RTP, Card Network, P2P, International',
+    PROCESSING_FEE NUMBER(8,4) 
+        COMMENT 'Standard processing fee charged per transaction (in USD)',
+    SETTLEMENT_TIME VARCHAR(50) 
+        COMMENT 'Typical settlement timeframe: Instant, Same Day, Next Day, 2-3 Days',
+    MAX_TRANSACTION_AMOUNT NUMBER(15,2) 
+        COMMENT 'Maximum transaction amount allowed on this network (in USD)',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'Whether this network is currently available for processing',
+    
+    CONSTRAINT PK_PAYMENT_NETWORKS PRIMARY KEY (NETWORK_ID),
+    CONSTRAINT UQ_PAYMENT_NETWORKS_CODE UNIQUE (NETWORK_CODE)
+);
+
+-- Payment Transactions
+CREATE OR REPLACE TABLE PAYMENTS.TRANSACTIONS (
+    TRANSACTION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each payment transaction',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the originating financial institution',
+    NETWORK_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the payment network used for processing',
+    TRANSACTION_NUMBER VARCHAR(50) NOT NULL 
+        COMMENT 'Institution-specific transaction number for customer reference',
+    PAYMENT_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Specific payment method: ACH Credit, ACH Debit, Wire, RTP, P2P, International',
+    DEBIT_ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to internal account being debited (null for external origination)',
+    CREDIT_ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to internal account being credited (null for external destination)',
+    EXTERNAL_ACCOUNT_NUMBER VARCHAR(50) 
+        COMMENT 'Account number at external financial institution',
+    EXTERNAL_ROUTING_NUMBER VARCHAR(9) 
+        COMMENT 'ABA routing number of external financial institution',
+    EXTERNAL_BANK_NAME VARCHAR(200) 
+        COMMENT 'Name of external financial institution',
+    AMOUNT NUMBER(15,2) NOT NULL 
+        COMMENT 'Transaction amount in specified currency (positive for all transactions)',
+    CURRENCY VARCHAR(3) DEFAULT 'USD' 
+        COMMENT 'ISO currency code (USD, EUR, GBP, CAD, etc.)',
+    TRANSACTION_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date and time when transaction was initiated',
+    EFFECTIVE_DATE DATE NOT NULL 
+        COMMENT 'Business date when transaction takes effect',
+    SETTLEMENT_DATE DATE 
+        COMMENT 'Date when funds are actually transferred between institutions',
+    STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Current status: Pending, Processing, Completed, Failed, Cancelled, Returned',
+    STATUS_REASON VARCHAR(200) 
+        COMMENT 'Detailed reason for current status (especially for failures/returns)',
+    DESCRIPTION VARCHAR(500) 
+        COMMENT 'Transaction description provided by originator',
+    REFERENCE VARCHAR(100) 
+        COMMENT 'Customer reference number or memo field',
+    PROCESSING_FEE NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Actual fee charged for processing this transaction (in USD)',
+    RISK_SCORE NUMBER(3,0) 
+        COMMENT 'Automated risk assessment score (0-100, higher = riskier)',
+    FRAUD_FLAG BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if transaction has been flagged for potential fraud',
+    COMPLIANCE_FLAG BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if transaction requires compliance review (AML, sanctions, etc.)',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when transaction record was created',
+    MODIFIED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when transaction record was last modified',
+    
+    CONSTRAINT PK_TRANSACTIONS PRIMARY KEY (TRANSACTION_ID),
+    CONSTRAINT FK_TRANSACTIONS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_TRANSACTIONS_NETWORK FOREIGN KEY (NETWORK_ID) REFERENCES PAYMENTS.PAYMENT_NETWORKS(NETWORK_ID),
+    CONSTRAINT FK_TRANSACTIONS_DEBIT_ACCOUNT FOREIGN KEY (DEBIT_ACCOUNT_ID) REFERENCES CORE.ACCOUNTS(ACCOUNT_ID),
+    CONSTRAINT FK_TRANSACTIONS_CREDIT_ACCOUNT FOREIGN KEY (CREDIT_ACCOUNT_ID) REFERENCES CORE.ACCOUNTS(ACCOUNT_ID),
+    CONSTRAINT UQ_TRANSACTIONS_NUMBER UNIQUE (INSTITUTION_ID, TRANSACTION_NUMBER)
+);
+
+-- =============================================================================
+-- CARD SERVICES
+-- =============================================================================
+
+-- Card Programs
+CREATE OR REPLACE TABLE CARDS.CARD_PROGRAMS (
+    PROGRAM_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each card program offered',
+    PROGRAM_CODE VARCHAR(20) NOT NULL 
+        COMMENT 'Short alphanumeric code for the card program (e.g., DEB001, CC002)',
+    PROGRAM_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Marketing name for the card program',
+    CARD_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of card: Debit, Credit, Prepaid, Business, Corporate, Government',
+    CARD_NETWORK VARCHAR(20) NOT NULL 
+        COMMENT 'Card network/brand: Visa, Mastercard, Discover, American Express',
+    BIN VARCHAR(6) NOT NULL 
+        COMMENT 'Bank Identification Number - first 6 digits of card numbers in this program',
+    ANNUAL_FEE NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Annual fee charged to cardholders (in USD, 0 = no fee)',
+    INTEREST_RATE NUMBER(6,4) 
+        COMMENT 'Annual percentage rate for credit cards (null for debit/prepaid)',
+    CASH_ADVANCE_FEE NUMBER(5,4) 
+        COMMENT 'Fee rate for cash advances as percentage of amount',
+    FOREIGN_TRANSACTION_FEE NUMBER(5,4) 
+        COMMENT 'Fee rate for foreign currency transactions as percentage',
+    REWARDS_PROGRAM VARCHAR(100) 
+        COMMENT 'Description of rewards program if applicable',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'Whether new cards can be issued under this program',
+    
+    CONSTRAINT PK_CARD_PROGRAMS PRIMARY KEY (PROGRAM_ID),
+    CONSTRAINT UQ_CARD_PROGRAMS_CODE UNIQUE (PROGRAM_CODE)
+);
+
+-- Card Accounts
+CREATE OR REPLACE TABLE CARDS.CARD_ACCOUNTS (
+    CARD_ACCOUNT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each card account',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the financial institution issuing the card',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer who owns this card',
+    PROGRAM_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the card program this card belongs to',
+    LINKED_ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to linked deposit account (for debit cards)',
+    CARD_NUMBER_ENCRYPTED BINARY NOT NULL 
+        COMMENT 'Encrypted full card number (PCI DSS compliant storage)',
+    CARD_NUMBER_MASKED VARCHAR(20) NOT NULL 
+        COMMENT 'Masked card number showing only last 4 digits (e.g., ****-****-****-1234)',
+    EXPIRATION_DATE VARCHAR(5) NOT NULL 
+        COMMENT 'Card expiration in MM/YY format',
+    CVV_ENCRYPTED BINARY 
+        COMMENT 'Encrypted card verification value (3-4 digits)',
+    CARD_HOLDER_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Name embossed on the card',
+    CREDIT_LIMIT NUMBER(12,2) 
+        COMMENT 'Credit limit for credit cards (null for debit/prepaid)',
+    AVAILABLE_CREDIT NUMBER(12,2) 
+        COMMENT 'Available credit remaining (credit limit minus current balance)',
+    CURRENT_BALANCE NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Current balance owed on credit cards (in USD)',
+    MINIMUM_PAYMENT NUMBER(10,2) DEFAULT 0 
+        COMMENT 'Minimum payment due on next statement (credit cards only)',
+    LAST_PAYMENT_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date of most recent payment received (credit cards)',
+    NEXT_PAYMENT_DUE DATE 
+        COMMENT 'Due date for next minimum payment (credit cards)',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current card status: Active, Blocked, Expired, Cancelled, Lost, Stolen',
+    ISSUE_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date when card was first issued',
+    ACTIVATION_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when customer activated the card',
+    BLOCK_REASON VARCHAR(200) 
+        COMMENT 'Reason why card was blocked if applicable',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when card record was created',
+    
+    CONSTRAINT PK_CARD_ACCOUNTS PRIMARY KEY (CARD_ACCOUNT_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_PROGRAM FOREIGN KEY (PROGRAM_ID) REFERENCES CARDS.CARD_PROGRAMS(PROGRAM_ID),
+    CONSTRAINT FK_CARD_ACCOUNTS_LINKED_ACCOUNT FOREIGN KEY (LINKED_ACCOUNT_ID) REFERENCES CORE.ACCOUNTS(ACCOUNT_ID)
+);
+
+-- Card Transactions
+CREATE OR REPLACE TABLE CARDS.CARD_TRANSACTIONS (
+    CARD_TRANSACTION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each card transaction',
+    CARD_ACCOUNT_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the card account used for this transaction',
+    TRANSACTION_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of transaction: Purchase, ATM Withdrawal, Cash Advance, Payment, Fee, Refund',
+    AMOUNT NUMBER(12,2) NOT NULL 
+        COMMENT 'Transaction amount in specified currency (always positive)',
+    CURRENCY VARCHAR(3) DEFAULT 'USD' 
+        COMMENT 'ISO currency code for the transaction',
+    MERCHANT_NAME VARCHAR(200) 
+        COMMENT 'Name of merchant where transaction occurred',
+    MERCHANT_CATEGORY VARCHAR(100) 
+        COMMENT 'Merchant category code description (e.g., Gas Stations, Restaurants)',
+    MERCHANT_ID VARCHAR(50) 
+        COMMENT 'Unique merchant identifier assigned by card processor',
+    TRANSACTION_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Date and time when transaction was authorized',
+    POSTING_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when transaction was posted to account balance',
+    AUTHORIZATION_CODE VARCHAR(20) 
+        COMMENT 'Authorization code returned by card network',
+    NETWORK_TRANSACTION_ID VARCHAR(50) 
+        COMMENT 'Unique transaction identifier assigned by card network',
+    STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Current status: Pending, Posted, Declined, Disputed, Reversed',
+    DECLINE_REASON VARCHAR(200) 
+        COMMENT 'Reason for decline if transaction was not approved',
+    LOCATION VARCHAR(200) 
+        COMMENT 'Geographic location where transaction occurred',
+    COUNTRY VARCHAR(100) 
+        COMMENT 'Country where transaction occurred',
+    RISK_SCORE NUMBER(3,0) 
+        COMMENT 'Fraud risk assessment score (0-100, higher = riskier)',
+    FRAUD_FLAG BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if transaction has been flagged as potentially fraudulent',
+    REWARDS_EARNED NUMBER(8,2) DEFAULT 0 
+        COMMENT 'Rewards points or cash back earned from this transaction',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when transaction record was created',
+    
+    CONSTRAINT PK_CARD_TRANSACTIONS PRIMARY KEY (CARD_TRANSACTION_ID),
+    CONSTRAINT FK_CARD_TRANSACTIONS_CARD_ACCOUNT FOREIGN KEY (CARD_ACCOUNT_ID) REFERENCES CARDS.CARD_ACCOUNTS(CARD_ACCOUNT_ID)
+);
+
+-- =============================================================================
+-- DIGITAL BANKING
+-- =============================================================================
+
+-- Digital Banking Users
+CREATE OR REPLACE TABLE DIGITAL.DIGITAL_USERS (
+    USER_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique system identifier for each digital banking user',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer record this digital user represents',
+    USERNAME VARCHAR(100) NOT NULL 
+        COMMENT 'Unique username for digital banking login',
+    PASSWORD_HASH BINARY NOT NULL 
+        COMMENT 'Cryptographically hashed password (never store plain text)',
+    EMAIL VARCHAR(250) NOT NULL 
+        COMMENT 'Email address for digital banking communications',
+    MOBILE_PHONE VARCHAR(20) 
+        COMMENT 'Mobile phone number for SMS notifications and 2FA',
+    LAST_LOGIN_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date and time of most recent successful login',
+    LOGIN_ATTEMPTS NUMBER(3,0) DEFAULT 0 
+        COMMENT 'Number of consecutive failed login attempts',
+    IS_LOCKED BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if account is temporarily locked due to failed login attempts',
+    LOCKOUT_END_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when account lockout expires (null if not locked)',
+    TWO_FACTOR_ENABLED BOOLEAN DEFAULT FALSE 
+        COMMENT 'True if two-factor authentication is enabled for this user',
+    PREFERRED_NOTIFICATION_METHOD VARCHAR(20) DEFAULT 'Email' 
+        COMMENT 'Preferred method for notifications: Email, SMS, Push, In-App',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current user status: Active, Inactive, Suspended, Terminated',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when user account was created',
+    
+    CONSTRAINT PK_DIGITAL_USERS PRIMARY KEY (USER_ID),
+    CONSTRAINT FK_DIGITAL_USERS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID),
+    CONSTRAINT UQ_DIGITAL_USERS_USERNAME UNIQUE (USERNAME),
+    CONSTRAINT UQ_DIGITAL_USERS_EMAIL UNIQUE (EMAIL)
+);
+
+-- Digital Banking Sessions
+CREATE OR REPLACE TABLE DIGITAL.USER_SESSIONS (
+    SESSION_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each user login session',
+    USER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the digital user who owns this session',
+    SESSION_TOKEN VARCHAR(500) NOT NULL 
+        COMMENT 'Encrypted session token used for authentication',
+    DEVICE_TYPE VARCHAR(50) 
+        COMMENT 'Type of device used: Web Browser, Mobile App, Tablet App, API',
+    DEVICE_ID VARCHAR(200) 
+        COMMENT 'Unique identifier for the device (if available)',
+    IP_ADDRESS VARCHAR(45) 
+        COMMENT 'IP address from which session was initiated (IPv4 or IPv6)',
+    USER_AGENT VARCHAR(500) 
+        COMMENT 'Browser/app user agent string for security analysis',
+    START_TIME TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time when session was initiated',
+    LAST_ACTIVITY TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time of most recent activity in this session',
+    END_TIME TIMESTAMP_NTZ 
+        COMMENT 'Date and time when session was terminated (null for active sessions)',
+    STATUS VARCHAR(20) DEFAULT 'Active' 
+        COMMENT 'Current session status: Active, Expired, Terminated, Timeout',
+    
+    CONSTRAINT PK_USER_SESSIONS PRIMARY KEY (SESSION_ID),
+    CONSTRAINT FK_USER_SESSIONS_USER FOREIGN KEY (USER_ID) REFERENCES DIGITAL.DIGITAL_USERS(USER_ID)
+);
+
+-- Bill Pay Payees
+CREATE OR REPLACE TABLE DIGITAL.BILL_PAY_PAYEES (
+    PAYEE_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each bill pay payee',
+    CUSTOMER_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the customer who set up this payee',
+    PAYEE_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Name of company or individual being paid',
+    PAYEE_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Category of payee: Utility, Credit Card, Loan, Insurance, Tax, Other',
+    ACCOUNT_NUMBER VARCHAR(100) 
+        COMMENT 'Account number with the payee for payment identification',
+    ADDRESS VARCHAR(500) 
+        COMMENT 'Mailing address for the payee',
+    CITY VARCHAR(100) 
+        COMMENT 'City for payee address',
+    STATE VARCHAR(50) 
+        COMMENT 'State or province for payee address',
+    ZIP_CODE VARCHAR(20) 
+        COMMENT 'Postal code for payee address',
+    PHONE VARCHAR(20) 
+        COMMENT 'Customer service phone number for the payee',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'True if payee is currently available for payments',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when payee was added',
+    
+    CONSTRAINT PK_BILL_PAY_PAYEES PRIMARY KEY (PAYEE_ID),
+    CONSTRAINT FK_BILL_PAY_PAYEES_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID)
+);
+
+-- =============================================================================
+-- RISK MANAGEMENT
+-- =============================================================================
+
+-- Risk Rules and Models
+CREATE OR REPLACE TABLE RISK.RISK_RULES (
+    RULE_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each risk detection rule',
+    RULE_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Descriptive name for the risk rule',
+    RULE_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Category of risk: Fraud Detection, AML, Credit Risk, Operational Risk, Cyber Security',
+    RULE_DESCRIPTION VARCHAR(500) 
+        COMMENT 'Detailed description of what triggers this rule',
+    RISK_SCORE NUMBER(3,0) NOT NULL 
+        COMMENT 'Risk score assigned when rule triggers (1-100 scale, higher = riskier)',
+    SEVERITY VARCHAR(20) NOT NULL 
+        COMMENT 'Risk severity level: Low, Medium, High, Critical',
+    IS_ACTIVE BOOLEAN DEFAULT TRUE 
+        COMMENT 'True if rule is currently being evaluated',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when rule was created',
+    
+    CONSTRAINT PK_RISK_RULES PRIMARY KEY (RULE_ID)
+);
+
+-- Risk Events and Alerts
+CREATE OR REPLACE TABLE RISK.RISK_EVENTS (
+    EVENT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each risk event detected',
+    RULE_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the risk rule that triggered this event',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to the institution where event occurred',
+    CUSTOMER_ID NUMBER 
+        COMMENT 'Foreign key to customer involved (null for system-wide events)',
+    ACCOUNT_ID NUMBER 
+        COMMENT 'Foreign key to specific account involved (if applicable)',
+    TRANSACTION_ID NUMBER 
+        COMMENT 'Foreign key to payment transaction that triggered event (if applicable)',
+    CARD_TRANSACTION_ID NUMBER 
+        COMMENT 'Foreign key to card transaction that triggered event (if applicable)',
+    EVENT_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'Type of event: Fraud Alert, AML Alert, Credit Risk, Operational Risk',
+    EVENT_DESCRIPTION VARCHAR(500) 
+        COMMENT 'Detailed description of the risk event detected',
+    RISK_SCORE NUMBER(3,0) NOT NULL 
+        COMMENT 'Calculated risk score for this specific event (1-100)',
+    SEVERITY VARCHAR(20) NOT NULL 
+        COMMENT 'Event severity: Low, Medium, High, Critical',
+    STATUS VARCHAR(20) DEFAULT 'Open' 
+        COMMENT 'Current status: Open, Under Review, False Positive, Confirmed, Resolved',
+    ASSIGNED_TO VARCHAR(100) 
+        COMMENT 'Name or ID of person assigned to investigate this event',
+    RESOLUTION_NOTES VARCHAR(1000) 
+        COMMENT 'Notes documenting investigation and resolution',
+    EVENT_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time when risk event was detected',
+    RESOLVED_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date and time when event was resolved (null if still open)',
+    
+    CONSTRAINT PK_RISK_EVENTS PRIMARY KEY (EVENT_ID),
+    CONSTRAINT FK_RISK_EVENTS_RULE FOREIGN KEY (RULE_ID) REFERENCES RISK.RISK_RULES(RULE_ID),
+    CONSTRAINT FK_RISK_EVENTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT FK_RISK_EVENTS_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID)
+);
+
+-- =============================================================================
+-- COMPLIANCE AND REGULATORY
+-- =============================================================================
+
+-- Regulatory Reports
+CREATE OR REPLACE TABLE COMPLIANCE.REGULATORY_REPORTS (
+    REPORT_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each regulatory report filed',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to institution filing the report',
+    REPORT_TYPE VARCHAR(100) NOT NULL 
+        COMMENT 'Type of report: CTR, SAR, OFAC, CRA, BSA, Call Report, 5300, etc.',
+    REPORTING_PERIOD VARCHAR(50) NOT NULL 
+        COMMENT 'Period covered by report (e.g., Q1 2024, January 2024, Annual 2023)',
+    REGULATOR_ID VARCHAR(50) NOT NULL 
+        COMMENT 'Regulatory agency: FinCEN, FDIC, NCUA, OCC, Fed, CFPB, etc.',
+    STATUS VARCHAR(20) DEFAULT 'Draft' 
+        COMMENT 'Report status: Draft, Submitted, Acknowledged, Under Review, Accepted',
+    SUBMISSION_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when report was submitted to regulator',
+    DUE_DATE TIMESTAMP_NTZ NOT NULL 
+        COMMENT 'Regulatory deadline for report submission',
+    FILE_PATH VARCHAR(500) 
+        COMMENT 'Path to report file in secure storage system',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when report record was created',
+    
+    CONSTRAINT PK_REGULATORY_REPORTS PRIMARY KEY (REPORT_ID),
+    CONSTRAINT FK_REGULATORY_REPORTS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID)
+);
+
+-- OFAC/Sanctions Screening
+CREATE OR REPLACE TABLE COMPLIANCE.SANCTIONS_SCREENING (
+    SCREENING_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each sanctions screening performed',
+    CUSTOMER_ID NUMBER 
+        COMMENT 'Foreign key to customer being screened (if applicable)',
+    TRANSACTION_ID NUMBER 
+        COMMENT 'Foreign key to transaction being screened (if applicable)',
+    ENTITY_NAME VARCHAR(200) NOT NULL 
+        COMMENT 'Name of person or entity being screened against sanctions lists',
+    SCREENING_TYPE VARCHAR(50) NOT NULL 
+        COMMENT 'When screening occurred: Customer Onboarding, Transaction, Periodic Review, Ad-Hoc',
+    MATCH_TYPE VARCHAR(50) 
+        COMMENT 'Type of match found: Exact, Fuzzy, Partial, Alias, False Positive',
+    MATCH_SCORE NUMBER(5,2) 
+        COMMENT 'Confidence score for match (0.00-100.00, higher = more confident)',
+    LIST_NAME VARCHAR(100) NOT NULL 
+        COMMENT 'Sanctions list checked: OFAC SDN, EU Sanctions, UN Sanctions, PEP List',
+    STATUS VARCHAR(20) DEFAULT 'Pending' 
+        COMMENT 'Screening status: Pending, Clear, Hit, False Positive, Under Review',
+    REVIEW_NOTES VARCHAR(1000) 
+        COMMENT 'Notes from manual review of screening results',
+    SCREENING_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'Date and time when screening was performed',
+    REVIEWED_BY VARCHAR(100) 
+        COMMENT 'Name or ID of compliance officer who reviewed the screening',
+    REVIEWED_DATE TIMESTAMP_NTZ 
+        COMMENT 'Date when manual review was completed',
+    
+    CONSTRAINT PK_SANCTIONS_SCREENING PRIMARY KEY (SCREENING_ID),
+    CONSTRAINT FK_SANCTIONS_SCREENING_CUSTOMER FOREIGN KEY (CUSTOMER_ID) REFERENCES CORE.CUSTOMERS(CUSTOMER_ID)
+);
+
+-- =============================================================================
+-- ANALYTICS AND REPORTING
+-- =============================================================================
+
+-- Business Intelligence Metrics
+CREATE OR REPLACE TABLE ANALYTICS.DAILY_METRICS (
+    METRIC_ID NUMBER AUTOINCREMENT START 1 INCREMENT 1 
+        COMMENT 'Unique identifier for each daily metrics record',
+    INSTITUTION_ID NUMBER NOT NULL 
+        COMMENT 'Foreign key to institution these metrics represent',
+    METRIC_DATE DATE NOT NULL 
+        COMMENT 'Business date for which metrics are calculated',
+    TOTAL_TRANSACTIONS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Total number of transactions processed on this date',
+    TOTAL_TRANSACTION_VOLUME NUMBER(18,2) DEFAULT 0 
+        COMMENT 'Total dollar volume of all transactions processed (in USD)',
+    TOTAL_CUSTOMERS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Total number of active customers as of this date',
+    NEW_CUSTOMERS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of new customers acquired on this date',
+    ACTIVE_DIGITAL_USERS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of customers who logged into digital banking on this date',
+    TOTAL_DEPOSITS NUMBER(18,2) DEFAULT 0 
+        COMMENT 'Total deposits across all accounts as of end of day (in USD)',
+    TOTAL_LOANS NUMBER(18,2) DEFAULT 0 
+        COMMENT 'Total outstanding loan balances as of end of day (in USD)',
+    FRAUD_DETECTED_COUNT NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of transactions flagged for fraud on this date',
+    FRAUD_LOSS_AMOUNT NUMBER(12,2) DEFAULT 0 
+        COMMENT 'Total confirmed fraud losses on this date (in USD)',
+    COMPLIANCE_ALERTS NUMBER(38,0) DEFAULT 0 
+        COMMENT 'Number of compliance alerts generated on this date',
+    SYSTEM_UPTIME NUMBER(5,2) DEFAULT 100.00 
+        COMMENT 'System availability percentage for this date (0.00-100.00)',
+    CREATED_DATE TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP() 
+        COMMENT 'System timestamp when metrics record was created',
+    
+    CONSTRAINT PK_DAILY_METRICS PRIMARY KEY (METRIC_ID),
+    CONSTRAINT FK_DAILY_METRICS_INSTITUTION FOREIGN KEY (INSTITUTION_ID) REFERENCES CORE.FINANCIAL_INSTITUTIONS(INSTITUTION_ID),
+    CONSTRAINT UQ_DAILY_METRICS_DATE UNIQUE (INSTITUTION_ID, METRIC_DATE)
+);
+
+-- =============================================================================
+-- CLUSTERING AND OPTIMIZATION
+-- =============================================================================
+
+-- Cluster keys for performance optimization
+ALTER TABLE PAYMENTS.TRANSACTIONS CLUSTER BY (TRANSACTION_DATE, INSTITUTION_ID);
+ALTER TABLE CARDS.CARD_TRANSACTIONS CLUSTER BY (TRANSACTION_DATE, CARD_ACCOUNT_ID);
+ALTER TABLE RISK.RISK_EVENTS CLUSTER BY (EVENT_DATE, INSTITUTION_ID);
+ALTER TABLE ANALYTICS.DAILY_METRICS CLUSTER BY (METRIC_DATE, INSTITUTION_ID);
+
+-- =============================================================================
+-- SAMPLE DATA INSERTION
+-- =============================================================================
+-- Insert data in dependency order to satisfy foreign key constraints
+
+-- Step 1: Insert base tables with no dependencies
+-- Insert Sample Financial Institutions
+INSERT INTO CORE.FINANCIAL_INSTITUTIONS (INSTITUTION_CODE, INSTITUTION_NAME, INSTITUTION_TYPE, ROUTING_NUMBER, ADDRESS, CITY, STATE, ZIP_CODE, REGULATION_LEVEL, ASSETS_UNDER_MANAGEMENT, CUSTOMER_COUNT, PLATFORM_ONBOARD_DATE) VALUES
+('FIRSTBANK', 'First National Bank', 'Bank', '123456789', '100 Main Street', 'New York', 'NY', '10001', 'Federal', 5000000000.00, 250000, '2020-01-15 09:00:00'),
+('COMMCU', 'Community Credit Union', 'Credit Union', '987654321', '500 Oak Avenue', 'Chicago', 'IL', '60601', 'Credit Union', 1200000000.00, 85000, '2021-03-20 10:30:00'),
+('TECHFIN', 'TechFinance Bank', 'Fintech', '456789123', '2000 Innovation Drive', 'San Francisco', 'CA', '94105', 'State', 800000000.00, 150000, '2022-06-10 14:15:00');
+
+-- Insert Sample Product Types
+INSERT INTO CORE.PRODUCT_TYPES (PRODUCT_CODE, PRODUCT_NAME, PRODUCT_CATEGORY, INTEREST_RATE, MINIMUM_BALANCE, MONTHLY_FEE) VALUES
+('CHK001', 'Basic Checking', 'Checking', 0.0100, 0.00, 0.00),
+('CHK002', 'Premium Checking', 'Checking', 0.0250, 2500.00, 15.00),
+('SAV001', 'Standard Savings', 'Savings', 1.5000, 100.00, 0.00),
+('SAV002', 'High Yield Savings', 'Savings', 4.2500, 10000.00, 0.00),
+('CD001', 'Certificate of Deposit 12M', 'Certificate', 5.0000, 1000.00, 0.00),
+('LON001', 'Personal Loan', 'Loan', 8.9900, 0.00, 0.00),
+('MTG001', 'Fixed Rate Mortgage', 'Mortgage', 6.7500, 0.00, 0.00);
+
+-- Insert Sample Payment Networks
+INSERT INTO PAYMENTS.PAYMENT_NETWORKS (NETWORK_CODE, NETWORK_NAME, NETWORK_TYPE, PROCESSING_FEE, SETTLEMENT_TIME, MAX_TRANSACTION_AMOUNT) VALUES
+('ACH', 'Automated Clearing House', 'ACH', 0.25, 'Next Day', 1000000.00),
+('WIRE', 'Federal Wire Network', 'Wire', 15.00, 'Same Day', 10000000.00),
+('RTP', 'Real-Time Payments', 'RTP', 0.50, 'Instant', 100000.00),
+('ZELLE', 'Zelle Network', 'P2P', 0.00, 'Instant', 5000.00);
+
+-- Insert Sample Card Programs
+INSERT INTO CARDS.CARD_PROGRAMS (PROGRAM_CODE, PROGRAM_NAME, CARD_TYPE, CARD_NETWORK, BIN, ANNUAL_FEE, INTEREST_RATE, REWARDS_PROGRAM) VALUES
+('DEB001', 'Standard Debit Card', 'Debit', 'Visa', '401234', 0.0000, NULL, NULL),
+('DEB002', 'Premium Debit Card', 'Debit', 'Visa', '401235', 0.0000, NULL, 'Cash Back 1%'),
+('CC001', 'Basic Credit Card', 'Credit', 'Mastercard', '512345', 0.00, 18.9900, NULL),
+('CC002', 'Rewards Credit Card', 'Credit', 'Visa', '401567', 95.00, 16.9900, 'Points 2X'),
+('BIZ001', 'Business Credit Card', 'Business', 'Visa', '401890', 0.00, 14.9900, 'Cash Back 1.5%');
+
+-- Insert Sample Risk Rules
+INSERT INTO RISK.RISK_RULES (RULE_NAME, RULE_TYPE, RULE_DESCRIPTION, RISK_SCORE, SEVERITY) VALUES
+('Large Cash Transaction', 'AML', 'Cash transaction over $10,000', 75, 'High'),
+('Velocity Check', 'Fraud Detection', 'Multiple transactions in short time period', 60, 'Medium'),
+('Geographic Anomaly', 'Fraud Detection', 'Transaction in unusual location', 50, 'Medium'),
+('High Risk Country', 'AML', 'Transaction involving high-risk jurisdiction', 85, 'Critical'),
+('Structured Transaction', 'AML', 'Potential structuring to avoid reporting', 90, 'Critical'),
+('Card Not Present Fraud', 'Fraud Detection', 'Suspicious online/phone transaction', 45, 'Medium');
+
+-- Step 2: Insert Customers (depends on Financial Institutions)
+INSERT INTO CORE.CUSTOMERS (INSTITUTION_ID, CUSTOMER_NUMBER, CUSTOMER_TYPE, FIRST_NAME, LAST_NAME, BUSINESS_NAME, EMAIL, PHONE, CREDIT_SCORE, CUSTOMER_SINCE) VALUES
+(1, 'CUST001', 'Individual', 'John', 'Smith', NULL, 'john.smith@email.com', '555-0101', 750, '2022-01-15 09:30:00'),
+(1, 'CUST002', 'Individual', 'Sarah', 'Johnson', NULL, 'sarah.johnson@email.com', '555-0102', 720, '2022-02-20 11:15:00'),
+(1, 'CUST003', 'Business', NULL, NULL, 'TechCorp Solutions Inc', 'accounting@techcorp.com', '555-0103', NULL, '2022-03-10 14:00:00'),
+(2, 'CUST001', 'Individual', 'Michael', 'Brown', NULL, 'mike.brown@email.com', '555-0201', 680, '2021-06-15 16:45:00'),
+(2, 'CUST002', 'Individual', 'Lisa', 'Davis', NULL, 'lisa.davis@email.com', '555-0202', 790, '2021-08-22 10:20:00'),
+(3, 'CUST001', 'Individual', 'David', 'Wilson', NULL, 'david.wilson@email.com', '555-0301', 720, '2022-08-05 11:00:00'),
+(3, 'CUST002', 'Individual', 'Emily', 'Chen', NULL, 'emily.chen@email.com', '555-0302', 810, '2022-09-12 15:30:00');
+
+-- Step 3: Insert Accounts (depends on Financial Institutions, Customers, and Product Types)
+INSERT INTO CORE.ACCOUNTS (INSTITUTION_ID, CUSTOMER_ID, PRODUCT_TYPE_ID, ACCOUNT_NUMBER, ACCOUNT_NAME, CURRENT_BALANCE, AVAILABLE_BALANCE, OPEN_DATE) VALUES
+(1, 1, 1, '1001234567', 'Primary Checking', 2500.75, 2500.75, '2022-01-15 10:00:00'),
+(1, 1, 3, '1001234568', 'Emergency Savings', 15000.00, 15000.00, '2022-01-15 10:15:00'),
+(1, 2, 1, '1002345678', 'Checking Account', 3200.50, 3200.50, '2022-02-20 14:30:00'),
+(1, 2, 4, '1002345679', 'High Yield Savings', 25000.00, 25000.00, '2022-02-20 14:45:00'),
+(1, 3, 2, '1003456789', 'Business Operating', 75000.00, 75000.00, '2022-03-10 16:00:00'),
+(2, 4, 1, '2001234567', 'Main Checking', 1800.25, 1800.25, '2021-06-15 17:00:00'),
+(2, 4, 3, '2001234568', 'Vacation Fund', 8500.00, 8500.00, '2021-06-15 17:15:00'),
+(2, 5, 1, '2002345678', 'Checking', 4500.00, 4500.00, '2021-08-22 12:00:00'),
+(2, 5, 4, '2002345679', 'Investment Savings', 50000.00, 50000.00, '2021-08-22 12:30:00'),
+(3, 6, 1, '3001234567', 'Tech Checking', 3800.75, 3800.75, '2022-08-05 13:00:00'),
+(3, 7, 2, '3002345678', 'Premium Checking', 12500.00, 12500.00, '2022-09-12 16:45:00');
+
+-- Step 4: Insert Digital Users (depends on Customers)
+INSERT INTO DIGITAL.DIGITAL_USERS (CUSTOMER_ID, USERNAME, PASSWORD_HASH, EMAIL, MOBILE_PHONE, TWO_FACTOR_ENABLED) VALUES
+(1, 'john.smith01', TO_BINARY('hashed_password_1', 'UTF-8'), 'john.smith@email.com', '555-0101', TRUE),
+(2, 'sarah.johnson02', TO_BINARY('hashed_password_2', 'UTF-8'), 'sarah.johnson@email.com', '555-0102', TRUE),
+(3, 'techcorp.admin', TO_BINARY('hashed_password_3', 'UTF-8'), 'accounting@techcorp.com', '555-0103', FALSE),
+(4, 'mike.brown01', TO_BINARY('hashed_password_4', 'UTF-8'), 'mike.brown@email.com', '555-0201', FALSE),
+(5, 'lisa.davis01', TO_BINARY('hashed_password_5', 'UTF-8'), 'lisa.davis@email.com', '555-0202', TRUE),
+(6, 'david.wilson01', TO_BINARY('hashed_password_6', 'UTF-8'), 'david.wilson@email.com', '555-0301', TRUE),
+(7, 'emily.chen01', TO_BINARY('hashed_password_7', 'UTF-8'), 'emily.chen@email.com', '555-0302', TRUE);
+
+-- Step 5: Insert Card Accounts (depends on Financial Institutions, Customers, Card Programs, and Accounts)
+INSERT INTO CARDS.CARD_ACCOUNTS (INSTITUTION_ID, CUSTOMER_ID, PROGRAM_ID, LINKED_ACCOUNT_ID, CARD_NUMBER_ENCRYPTED, CARD_NUMBER_MASKED, EXPIRATION_DATE, CVV_ENCRYPTED, CARD_HOLDER_NAME, CREDIT_LIMIT, AVAILABLE_CREDIT, ISSUE_DATE, ACTIVATION_DATE) VALUES
+(1, 1, 1, 1, TO_BINARY('encrypted_card_1', 'UTF-8'), '****-****-****-1234', '12/26', TO_BINARY('enc_cvv_1', 'UTF-8'), 'JOHN SMITH', NULL, NULL, '2022-01-20 10:00:00', '2022-01-25 14:30:00'),
+(1, 2, 2, 3, TO_BINARY('encrypted_card_2', 'UTF-8'), '****-****-****-5678', '08/27', TO_BINARY('enc_cvv_2', 'UTF-8'), 'SARAH JOHNSON', NULL, NULL, '2022-02-25 11:00:00', '2022-03-01 09:15:00'),
+(1, 1, 3, NULL, TO_BINARY('encrypted_card_3', 'UTF-8'), '****-****-****-9012', '06/28', TO_BINARY('enc_cvv_3', 'UTF-8'), 'JOHN SMITH', 5000.00, 4850.00, '2022-06-10 14:00:00', '2022-06-15 10:30:00'),
+(2, 4, 1, 6, TO_BINARY('encrypted_card_4', 'UTF-8'), '****-****-****-3456', '10/25', TO_BINARY('enc_cvv_4', 'UTF-8'), 'MICHAEL BROWN', NULL, NULL, '2021-06-20 18:00:00', '2021-06-22 12:00:00'),
+(2, 5, 4, NULL, TO_BINARY('encrypted_card_5', 'UTF-8'), '****-****-****-7890', '04/29', TO_BINARY('enc_cvv_5', 'UTF-8'), 'LISA DAVIS', 15000.00, 14250.00, '2021-09-01 15:00:00', '2021-09-03 11:30:00'),
+(3, 6, 1, 10, TO_BINARY('encrypted_card_6', 'UTF-8'), '****-****-****-2468', '11/27', TO_BINARY('enc_cvv_6', 'UTF-8'), 'DAVID WILSON', NULL, NULL, '2022-08-10 16:00:00', '2022-08-12 13:45:00'),
+(3, 7, 2, 11, TO_BINARY('encrypted_card_7', 'UTF-8'), '****-****-****-1357', '03/28', TO_BINARY('enc_cvv_7', 'UTF-8'), 'EMILY CHEN', NULL, NULL, '2022-09-15 17:30:00', '2022-09-18 10:00:00');
+
+-- Step 6: Insert Payment Transactions (depends on Financial Institutions, Payment Networks, and Accounts)
+INSERT INTO PAYMENTS.TRANSACTIONS (INSTITUTION_ID, NETWORK_ID, TRANSACTION_NUMBER, PAYMENT_TYPE, DEBIT_ACCOUNT_ID, CREDIT_ACCOUNT_ID, EXTERNAL_ACCOUNT_NUMBER, EXTERNAL_ROUTING_NUMBER, EXTERNAL_BANK_NAME, AMOUNT, TRANSACTION_DATE, EFFECTIVE_DATE, STATUS, DESCRIPTION) VALUES
+(1, 1, 'TXN001', 'ACH Credit', NULL, 1, '9876543210', '111000025', 'Bank of America', 1500.00, '2024-01-15 09:30:00', '2024-01-15', 'Completed', 'Payroll Deposit'),
+(1, 1, 'TXN002', 'ACH Debit', 3, NULL, '1122334455', '021000021', 'Chase Bank', 850.50, '2024-01-16 14:20:00', '2024-01-16', 'Completed', 'Mortgage Payment'),
+(1, 4, 'TXN003', 'P2P', 1, 3, NULL, NULL, NULL, 250.00, '2024-01-17 16:45:00', '2024-01-17', 'Completed', 'Transfer to Sarah'),
+(2, 2, 'TXN004', 'Wire', 8, NULL, '5566778899', '026009593', 'Bank of America', 25000.00, '2024-01-18 11:00:00', '2024-01-18', 'Completed', 'Investment Transfer'),
+(2, 3, 'TXN005', 'RTP', NULL, 6, '7788990011', '121000248', 'Wells Fargo', 500.00, '2024-01-19 13:15:00', '2024-01-19', 'Completed', 'Instant Payment'),
+(3, 1, 'TXN006', 'ACH Credit', NULL, 10, '3344556677', '031176110', 'Citibank', 2200.00, '2024-01-20 08:45:00', '2024-01-20', 'Completed', 'Client Payment'),
+(3, 4, 'TXN007', 'P2P', 11, 10, NULL, NULL, NULL, 300.00, '2024-01-21 19:30:00', '2024-01-21', 'Completed', 'Expense Reimbursement');
+
+-- Step 7: Insert Card Transactions (depends on Card Accounts)
+INSERT INTO CARDS.CARD_TRANSACTIONS (CARD_ACCOUNT_ID, TRANSACTION_TYPE, AMOUNT, MERCHANT_NAME, MERCHANT_CATEGORY, TRANSACTION_DATE, POSTING_DATE, AUTHORIZATION_CODE, STATUS, LOCATION, COUNTRY) VALUES
+(1, 'Purchase', 45.67, 'Starbucks #1234', 'Coffee Shops', '2024-01-15 07:30:00', '2024-01-15 09:00:00', 'AUTH123456', 'Posted', 'New York, NY', 'USA'),
+(1, 'Purchase', 125.89, 'Amazon.com', 'Online Retail', '2024-01-16 20:15:00', '2024-01-17 02:00:00', 'AUTH789012', 'Posted', 'Online', 'USA'),
+(2, 'ATM Withdrawal', 100.00, 'Chase ATM #5678', 'ATM', '2024-01-17 12:45:00', '2024-01-17 12:45:00', 'AUTH345678', 'Posted', 'Chicago, IL', 'USA'),
+(3, 'Purchase', 89.99, 'Best Buy #9012', 'Electronics', '2024-01-18 15:20:00', '2024-01-19 08:30:00', 'AUTH901234', 'Posted', 'New York, NY', 'USA'),
+(4, 'Purchase', 32.54, 'Shell Gas Station', 'Gas Stations', '2024-01-19 08:00:00', '2024-01-19 10:15:00', 'AUTH567890', 'Posted', 'Chicago, IL', 'USA'),
+(5, 'Purchase', 567.89, 'Apple Store #3456', 'Electronics', '2024-01-20 14:30:00', '2024-01-21 09:00:00', 'AUTH234567', 'Posted', 'Chicago, IL', 'USA'),
+(6, 'Purchase', 78.45, 'Whole Foods #7890', 'Grocery', '2024-01-21 17:00:00', '2024-01-21 19:30:00', 'AUTH678901', 'Posted', 'San Francisco, CA', 'USA'),
+(7, 'Purchase', 234.56, 'Target #1357', 'Department Stores', '2024-01-22 11:15:00', '2024-01-22 14:00:00', 'AUTH890123', 'Posted', 'San Francisco, CA', 'USA');
+
+-- Step 8: Insert User Sessions (depends on Digital Users)
+INSERT INTO DIGITAL.USER_SESSIONS (USER_ID, SESSION_TOKEN, DEVICE_TYPE, IP_ADDRESS, USER_AGENT, START_TIME, LAST_ACTIVITY, STATUS) VALUES
+(1, 'session_token_1234567890abcdef', 'Mobile App', '192.168.1.100', 'FirstBank-Mobile/2.1.0 iOS/16.0', '2024-01-22 08:30:00', '2024-01-22 08:45:00', 'Active'),
+(2, 'session_token_2345678901bcdefg', 'Web Browser', '10.0.0.50', 'Mozilla/5.0 Chrome/120.0.0.0', '2024-01-22 09:15:00', '2024-01-22 09:30:00', 'Active'),
+(3, 'session_token_3456789012cdefgh', 'Web Browser', '172.16.0.25', 'Mozilla/5.0 Firefox/121.0', '2024-01-22 10:00:00', '2024-01-22 10:20:00', 'Expired'),
+(4, 'session_token_4567890123defghi', 'Mobile App', '192.168.2.75', 'CommCU-Mobile/1.8.5 Android/13', '2024-01-22 11:45:00', '2024-01-22 12:00:00', 'Active'),
+(5, 'session_token_5678901234efghij', 'Tablet App', '10.1.1.200', 'CommCU-Tablet/1.5.2 iPadOS/16.1', '2024-01-22 13:20:00', '2024-01-22 13:35:00', 'Active');
+
+-- Step 9: Insert Bill Pay Payees (depends on Customers)
+INSERT INTO DIGITAL.BILL_PAY_PAYEES (CUSTOMER_ID, PAYEE_NAME, PAYEE_TYPE, ACCOUNT_NUMBER, ADDRESS, CITY, STATE, ZIP_CODE, PHONE) VALUES
+(1, 'ConEd Electric', 'Utility', '123456789012', '4 Irving Place', 'New York', 'NY', '10003', '800-752-6633'),
+(1, 'Verizon Wireless', 'Utility', '9876543210', '1095 Avenue of the Americas', 'New York', 'NY', '10036', '800-922-0204'),
+(2, 'Chase Credit Card', 'Credit Card', '4***-****-****-5678', 'PO Box 15298', 'Wilmington', 'DE', '19850', '800-432-3117'),
+(2, 'State Farm Insurance', 'Insurance', 'POL9876543', '1 State Farm Plaza', 'Bloomington', 'IL', '61710', '800-732-5246'),
+(4, 'ComEd Electric', 'Utility', '567890123456', '3 Lincoln Centre', 'Oakbrook Terrace', 'IL', '60181', '800-334-7661'),
+(5, 'Discover Card', 'Credit Card', '6***-****-****-7890', 'PO Box 30943', 'Salt Lake City', 'UT', '84130', '800-347-2683'),
+(6, 'PG&E Electric', 'Utility', '789012345678', '77 Beale Street', 'San Francisco', 'CA', '94105', '800-743-5000'),
+(7, 'Wells Fargo Mortgage', 'Loan', '890123456789', 'PO Box 10335', 'Des Moines', 'IA', '50306', '800-869-3557');
+
+-- Step 10: Insert Risk Events (depends on Risk Rules and Financial Institutions)
+INSERT INTO RISK.RISK_EVENTS (RULE_ID, INSTITUTION_ID, CUSTOMER_ID, TRANSACTION_ID, EVENT_TYPE, EVENT_DESCRIPTION, RISK_SCORE, SEVERITY, STATUS, EVENT_DATE) VALUES
+(2, 1, 1, 3, 'Fraud Alert', 'Multiple P2P transactions within 1 hour', 60, 'Medium', 'Resolved', '2024-01-17 17:00:00'),
+(1, 2, NULL, 4, 'AML Alert', 'Large wire transfer exceeding $10,000 threshold', 75, 'High', 'Under Review', '2024-01-18 11:30:00'),
+(3, 3, 6, 6, 'Fraud Alert', 'Transaction from new geographic location', 50, 'Medium', 'False Positive', '2024-01-20 09:00:00'),
+(6, 1, 2, NULL, 'Fraud Alert', 'Card not present transaction pattern detected', 45, 'Medium', 'Open', '2024-01-21 15:30:00');
+
+-- Step 11: Insert Regulatory Reports (depends on Financial Institutions)
+INSERT INTO COMPLIANCE.REGULATORY_REPORTS (INSTITUTION_ID, REPORT_TYPE, REPORTING_PERIOD, REGULATOR_ID, STATUS, DUE_DATE, SUBMISSION_DATE) VALUES
+(1, 'CTR', 'January 2024', 'FinCEN', 'Submitted', '2024-02-15 23:59:59', '2024-02-10 14:30:00'),
+(1, 'Call Report', 'Q4 2023', 'FDIC', 'Acknowledged', '2024-01-30 23:59:59', '2024-01-25 16:45:00'),
+(2, 'SAR', 'Q4 2023', 'FinCEN', 'Under Review', '2024-01-31 23:59:59', '2024-01-28 11:20:00'),
+(2, '5300 Report', 'Q4 2023', 'NCUA', 'Accepted', '2024-01-31 23:59:59', '2024-01-20 13:15:00'),
+(3, 'BSA Report', 'Q4 2023', 'FinCEN', 'Draft', '2024-02-29 23:59:59', NULL);
+
+-- Step 12: Insert Sanctions Screening (depends on Customers)
+INSERT INTO COMPLIANCE.SANCTIONS_SCREENING (CUSTOMER_ID, ENTITY_NAME, SCREENING_TYPE, MATCH_TYPE, MATCH_SCORE, LIST_NAME, STATUS, SCREENING_DATE, REVIEWED_BY, REVIEWED_DATE) VALUES
+(1, 'John Smith', 'Customer Onboarding', 'Fuzzy', 15.50, 'OFAC SDN', 'Clear', '2022-01-15 10:00:00', 'ComplianceOfficer1', '2022-01-15 10:30:00'),
+(2, 'Sarah Johnson', 'Customer Onboarding', 'Partial', 25.75, 'OFAC SDN', 'Clear', '2022-02-20 11:30:00', 'ComplianceOfficer2', '2022-02-20 12:00:00'),
+(3, 'TechCorp Solutions Inc', 'Customer Onboarding', 'Fuzzy', 8.25, 'EU Sanctions', 'Clear', '2022-03-10 14:15:00', 'ComplianceOfficer1', '2022-03-10 15:00:00'),
+(4, 'Michael Brown', 'Periodic Review', 'Fuzzy', 12.00, 'OFAC SDN', 'Clear', '2024-01-15 09:00:00', 'ComplianceOfficer3', '2024-01-15 09:45:00'),
+(NULL, 'Suspicious Entity Name', 'Transaction', 'Exact', 95.50, 'OFAC SDN', 'Hit', '2024-01-20 16:30:00', 'ComplianceOfficer2', NULL);
+
+-- Step 13: Insert Daily Metrics (depends on Financial Institutions)
+INSERT INTO ANALYTICS.DAILY_METRICS (INSTITUTION_ID, METRIC_DATE, TOTAL_TRANSACTIONS, TOTAL_TRANSACTION_VOLUME, TOTAL_CUSTOMERS, NEW_CUSTOMERS, ACTIVE_DIGITAL_USERS, TOTAL_DEPOSITS, TOTAL_LOANS, FRAUD_DETECTED_COUNT, FRAUD_LOSS_AMOUNT, COMPLIANCE_ALERTS, SYSTEM_UPTIME) VALUES
+(1, '2024-01-15', 1250, 2500000.00, 250000, 5, 45000, 1200000000.00, 800000000.00, 3, 150.00, 1, 99.95),
+(1, '2024-01-16', 1180, 2100000.00, 250005, 2, 42000, 1205000000.00, 799500000.00, 2, 75.50, 0, 99.98),
+(1, '2024-01-17', 1320, 2750000.00, 250007, 3, 47000, 1210000000.00, 799000000.00, 4, 220.75, 2, 99.92),
+(2, '2024-01-15', 890, 1800000.00, 85000, 2, 15000, 750000000.00, 450000000.00, 1, 45.00, 0, 99.99),
+(2, '2024-01-16', 920, 1950000.00, 85002, 1, 16500, 752000000.00, 449800000.00, 2, 89.25, 1, 99.97),
+(2, '2024-01-17', 850, 1650000.00, 85003, 0, 14800, 754000000.00, 449600000.00, 0, 0.00, 0, 100.00),
+(3, '2024-01-15', 650, 1200000.00, 150000, 8, 35000, 600000000.00, 200000000.00, 1, 25.00, 1, 99.85),
+(3, '2024-01-16', 680, 1350000.00, 150008, 4, 37500, 605000000.00, 199500000.00, 2, 112.50, 0, 99.90),
+(3, '2024-01-17', 720, 1450000.00, 150012, 6, 39000, 608000000.00, 199000000.00, 1, 67.80, 1, 99.88);
+
+-- =============================================================================
+-- CREATE VIEWS FOR COMMON QUERIES
+-- =============================================================================
+
+-- Customer Summary View
+CREATE OR REPLACE VIEW CORE.VW_CUSTOMER_SUMMARY AS
+SELECT 
+    c.CUSTOMER_ID,
+    c.INSTITUTION_ID,
+    fi.INSTITUTION_NAME,
+    c.CUSTOMER_NUMBER,
+    c.FIRST_NAME || ' ' || c.LAST_NAME AS FULL_NAME,
+    c.EMAIL,
+    c.CUSTOMER_SINCE,
+    COUNT(a.ACCOUNT_ID) AS TOTAL_ACCOUNTS,
+    SUM(a.CURRENT_BALANCE) AS TOTAL_BALANCE,
+    c.CREDIT_SCORE,
+    c.RISK_RATING,
+    c.STATUS
+FROM CORE.CUSTOMERS c
+JOIN CORE.FINANCIAL_INSTITUTIONS fi ON c.INSTITUTION_ID = fi.INSTITUTION_ID
+LEFT JOIN CORE.ACCOUNTS a ON c.CUSTOMER_ID = a.CUSTOMER_ID
+GROUP BY c.CUSTOMER_ID, c.INSTITUTION_ID, fi.INSTITUTION_NAME, c.CUSTOMER_NUMBER, 
+         c.FIRST_NAME, c.LAST_NAME, c.EMAIL, c.CUSTOMER_SINCE, c.CREDIT_SCORE, c.RISK_RATING, c.STATUS;
+
+-- Transaction Summary View
+CREATE OR REPLACE VIEW PAYMENTS.VW_TRANSACTION_SUMMARY AS
+SELECT 
+    t.TRANSACTION_ID,
+    t.INSTITUTION_ID,
+    fi.INSTITUTION_NAME,
+    t.TRANSACTION_NUMBER,
+    t.PAYMENT_TYPE,
+    t.AMOUNT,
+    t.TRANSACTION_DATE,
+    t.STATUS,
+    pn.NETWORK_NAME,
+    da.ACCOUNT_NUMBER AS DEBIT_ACCOUNT,
+    ca.ACCOUNT_NUMBER AS CREDIT_ACCOUNT,
+    t.FRAUD_FLAG,
+    t.RISK_SCORE
+FROM PAYMENTS.TRANSACTIONS t
+JOIN CORE.FINANCIAL_INSTITUTIONS fi ON t.INSTITUTION_ID = fi.INSTITUTION_ID
+JOIN PAYMENTS.PAYMENT_NETWORKS pn ON t.NETWORK_ID = pn.NETWORK_ID
+LEFT JOIN CORE.ACCOUNTS da ON t.DEBIT_ACCOUNT_ID = da.ACCOUNT_ID
+LEFT JOIN CORE.ACCOUNTS ca ON t.CREDIT_ACCOUNT_ID = ca.ACCOUNT_ID;
+
+-- Daily Analytics View
+CREATE OR REPLACE VIEW ANALYTICS.VW_DAILY_ANALYTICS AS
+SELECT 
+    dm.METRIC_DATE,
+    fi.INSTITUTION_NAME,
+    dm.TOTAL_TRANSACTIONS,
+    dm.TOTAL_TRANSACTION_VOLUME,
+    dm.TOTAL_CUSTOMERS,
+    dm.NEW_CUSTOMERS,
+    dm.ACTIVE_DIGITAL_USERS,
+    dm.FRAUD_DETECTED_COUNT,
+    dm.FRAUD_LOSS_AMOUNT,
+    dm.COMPLIANCE_ALERTS,
+    CASE 
+        WHEN dm.TOTAL_TRANSACTIONS > 0 
+        THEN ROUND(dm.FRAUD_DETECTED_COUNT * 100.0 / dm.TOTAL_TRANSACTIONS, 4)
+        ELSE 0 
+    END AS FRAUD_RATE_PERCENT
+FROM ANALYTICS.DAILY_METRICS dm
+JOIN CORE.FINANCIAL_INSTITUTIONS fi ON dm.INSTITUTION_ID = fi.INSTITUTION_ID;
+
+
+GRANT DATABASE ROLE SNOWFLAKE.PYPI_REPOSITORY_USER TO ROLE ACCOUNTADMIN;
+
+select * from information_schema.packages
+where package_name ilike '%fake%';

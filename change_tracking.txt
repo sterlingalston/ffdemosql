@@ -1,0 +1,302 @@
+use db_ff_demo;
+use schema staged;
+
+-- =============================================================================
+-- GENERATED DDL STATEMENTS (Execute these)
+-- =============================================================================
+
+-- ANALYTICS Schema
+ALTER TABLE ANALYTICS.DAILY_METRICS ADD COLUMN ROW_HASH VARCHAR(64);
+
+-- CARDS Schema  
+ALTER TABLE CARDS.CARD_ACCOUNTS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE CARDS.CARD_PROGRAMS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE CARDS.CARD_TRANSACTIONS ADD COLUMN ROW_HASH VARCHAR(64);
+
+-- COMPLIANCE Schema
+ALTER TABLE COMPLIANCE.REGULATORY_REPORTS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE COMPLIANCE.SANCTIONS_SCREENING ADD COLUMN ROW_HASH VARCHAR(64);
+
+-- CORE Schema
+ALTER TABLE CORE.ACCOUNTS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE CORE.CUSTOMERS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE CORE.FINANCIAL_INSTITUTIONS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE CORE.PRODUCT_TYPES ADD COLUMN ROW_HASH VARCHAR(64);
+
+-- DIGITAL Schema
+ALTER TABLE DIGITAL.BILL_PAY_PAYEES ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE DIGITAL.DIGITAL_USERS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE DIGITAL.USER_SESSIONS ADD COLUMN ROW_HASH VARCHAR(64);
+
+-- PAYMENTS Schema
+ALTER TABLE PAYMENTS.PAYMENT_NETWORKS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE PAYMENTS.TRANSACTIONS ADD COLUMN ROW_HASH VARCHAR(64);
+
+-- RISK Schema
+ALTER TABLE RISK.RISK_EVENTS ADD COLUMN ROW_HASH VARCHAR(64);
+ALTER TABLE RISK.RISK_RULES ADD COLUMN ROW_HASH VARCHAR(64);
+
+-- =============================================================================
+-- DDL TO ADD DATETIME_UPDATED TIMESTAMP_LTZ COLUMN TO ALL TABLES (NO DEFAULT)
+-- =============================================================================
+
+-- ANALYTICS Schema
+ALTER TABLE ANALYTICS.DAILY_METRICS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+
+-- CARDS Schema  
+ALTER TABLE CARDS.CARD_ACCOUNTS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE CARDS.CARD_PROGRAMS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE CARDS.CARD_TRANSACTIONS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+
+-- COMPLIANCE Schema
+ALTER TABLE COMPLIANCE.REGULATORY_REPORTS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE COMPLIANCE.SANCTIONS_SCREENING ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+
+-- CORE Schema
+ALTER TABLE CORE.ACCOUNTS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE CORE.CUSTOMERS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE CORE.FINANCIAL_INSTITUTIONS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE CORE.PRODUCT_TYPES ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+
+-- DIGITAL Schema
+ALTER TABLE DIGITAL.BILL_PAY_PAYEES ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE DIGITAL.DIGITAL_USERS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE DIGITAL.USER_SESSIONS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+
+-- PAYMENTS Schema
+ALTER TABLE PAYMENTS.PAYMENT_NETWORKS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE PAYMENTS.TRANSACTIONS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+
+-- RISK Schema
+ALTER TABLE RISK.RISK_EVENTS ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+ALTER TABLE RISK.RISK_RULES ADD COLUMN DATETIME_UPDATED TIMESTAMP_LTZ;
+
+-- =============================================================================
+-- VERIFICATION
+-- =============================================================================
+
+-- Check which tables now have the DATETIME_UPDATED column
+SELECT 
+    TABLE_SCHEMA,
+    TABLE_NAME,
+    'DATETIME_UPDATED' as COLUMN_ADDED
+FROM DB_FF_DEMO.INFORMATION_SCHEMA.COLUMNS 
+WHERE COLUMN_NAME = 'DATETIME_UPDATED'
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
+
+-- Count total
+SELECT COUNT(*) as TABLES_WITH_DATETIME_UPDATED 
+FROM DB_FF_DEMO.INFORMATION_SCHEMA.COLUMNS 
+WHERE COLUMN_NAME = 'DATETIME_UPDATED';
+
+-- Check both columns exist
+SELECT 
+    t.TABLE_SCHEMA,
+    t.TABLE_NAME,
+    CASE WHEN h.COLUMN_NAME IS NOT NULL THEN '✓' ELSE '✗' END as HAS_ROW_HASH,
+    CASE WHEN d.COLUMN_NAME IS NOT NULL THEN '✓' ELSE '✗' END as HAS_DATETIME_UPDATED
+FROM DB_FF_DEMO.INFORMATION_SCHEMA.TABLES t
+LEFT JOIN DB_FF_DEMO.INFORMATION_SCHEMA.COLUMNS h 
+    ON t.TABLE_SCHEMA = h.TABLE_SCHEMA 
+    AND t.TABLE_NAME = h.TABLE_NAME 
+    AND h.COLUMN_NAME = 'ROW_HASH'
+LEFT JOIN DB_FF_DEMO.INFORMATION_SCHEMA.COLUMNS d 
+    ON t.TABLE_SCHEMA = d.TABLE_SCHEMA 
+    AND t.TABLE_NAME = d.TABLE_NAME 
+    AND d.COLUMN_NAME = 'DATETIME_UPDATED'
+WHERE t.TABLE_TYPE = 'BASE TABLE'
+  AND t.TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+ORDER BY t.TABLE_SCHEMA, t.TABLE_NAME;
+
+-- =============================================================================
+-- UPDATE ROW_HASH COLUMN WITH HASH OF ALL COLUMNS EXCEPT PK AND TRACKING COLUMNS
+-- =============================================================================
+
+-- =============================================================================
+-- OPTION 1: SIMPLE APPROACH - EXCLUDE COMMON PATTERNS
+-- =============================================================================
+
+CREATE OR REPLACE PROCEDURE UPDATE_ROW_HASH_SIMPLE(
+    TARGET_DATABASE STRING DEFAULT 'DB_FF_DEMO',
+    EXCLUDE_COLUMNS STRING DEFAULT 'ROW_HASH,DATETIME_UPDATED,DATETIME_CREATED'
+)
+RETURNS VARIANT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.9'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'main'
+AS
+$$
+def main(session, target_database, exclude_columns):
+    """
+    Update ROW_HASH column with hash of all columns except excluded ones and ID columns.
+    """
+    try:
+        # session.sql(f"USE DATABASE {target_database}").collect()
+        
+        results = {
+            'database': target_database,
+            'tables_processed': 0,
+            'tables_skipped': 0,
+            'tables_updated': [],
+            'errors': []
+        }
+        
+        # Parse excluded columns
+        excluded_cols = [col.strip().upper() for col in exclude_columns.split(',')]
+        
+        # Get all tables with ROW_HASH column
+        tables_query = """
+        SELECT DISTINCT t.TABLE_SCHEMA, t.TABLE_NAME
+        FROM INFORMATION_SCHEMA.TABLES t
+        INNER JOIN INFORMATION_SCHEMA.COLUMNS c 
+            ON t.TABLE_SCHEMA = c.TABLE_SCHEMA 
+            AND t.TABLE_NAME = c.TABLE_NAME
+        WHERE t.TABLE_TYPE = 'BASE TABLE'
+          AND t.TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+          AND c.COLUMN_NAME = 'ROW_HASH'
+        ORDER BY t.TABLE_SCHEMA, t.TABLE_NAME
+        """
+        
+        tables_df = session.sql(tables_query)
+        tables_list = tables_df.collect()
+        
+        for table_row in tables_list:
+            schema_name = table_row['TABLE_SCHEMA']
+            table_name = table_row['TABLE_NAME']
+            full_table_name = f"{schema_name}.{table_name}"
+            
+            try:
+                # Get all columns for this table
+                columns_query = f"""
+                SELECT COLUMN_NAME, DATA_TYPE
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = '{schema_name}' 
+                  AND TABLE_NAME = '{table_name}'
+                ORDER BY ORDINAL_POSITION
+                """
+                
+                columns_df = session.sql(columns_query)
+                columns_list = columns_df.collect()
+                
+                # Find columns to include in hash
+                hash_columns = []
+                for col_row in columns_list:
+                    col_name = col_row['COLUMN_NAME'].upper()
+                    data_type = col_row['DATA_TYPE']
+                    
+                    # Exclude tracking columns and common ID patterns
+                    if (col_name in excluded_cols or 
+                        col_name.endswith('_ID') or 
+                        col_name == 'ID' or
+                        col_name.endswith('ID')):
+                        continue
+                    
+                    hash_columns.append({
+                        'name': col_row['COLUMN_NAME'],  # Keep original case
+                        'data_type': data_type
+                    })
+                
+                if not hash_columns:
+                    results['tables_skipped'] += 1
+                    continue
+                
+                # Build hash expression
+                hash_parts = []
+                for col_info in hash_columns:
+                    col_name = col_info['name']
+                    data_type = col_info['data_type'].upper()
+                    
+                    # Handle different data types for consistent hashing
+                    if any(t in data_type for t in ['VARCHAR', 'STRING', 'TEXT', 'CHAR']):
+                        hash_parts.append(f"COALESCE(TRIM({col_name}), '')")
+                    elif any(t in data_type for t in ['NUMBER', 'INT', 'DECIMAL', 'NUMERIC']):
+                        hash_parts.append(f"COALESCE(TO_VARCHAR({col_name}), '')")
+                    elif any(t in data_type for t in ['FLOAT', 'DOUBLE', 'REAL']):
+                        hash_parts.append(f"COALESCE(TO_VARCHAR(ROUND({col_name}, 10)), '')")
+                    elif any(t in data_type for t in ['DATE', 'TIME']):
+                        hash_parts.append(f"COALESCE(TO_VARCHAR({col_name}), '')")
+                    elif 'BOOLEAN' in data_type:
+                        hash_parts.append(f"COALESCE(TO_VARCHAR({col_name}), '')")
+                    elif any(t in data_type for t in ['VARIANT', 'OBJECT', 'ARRAY']):
+                        hash_parts.append(f"COALESCE(TO_VARCHAR({col_name}), '')")
+                    elif 'BINARY' in data_type:
+                        hash_parts.append(f"COALESCE(HEX_ENCODE({col_name}), '')")
+                    else:
+                        hash_parts.append(f"COALESCE(TO_VARCHAR({col_name}), '')")
+                
+                # Create hash expression
+                if hash_parts:
+                    concat_expr = " || '|' || ".join(hash_parts)
+                    hash_expr = f"MD5({concat_expr})"
+                else:
+                    hash_expr = "'NO_HASHABLE_COLUMNS'"
+                
+                # Update ROW_HASH column
+                update_sql = f"""
+                UPDATE {full_table_name} 
+                SET 
+                    ROW_HASH = {hash_expr},
+                    DATETIME_UPDATED = CURRENT_TIMESTAMP()
+                """
+                
+                result = session.sql(update_sql).collect()
+                
+                results['tables_updated'].append({
+                    'table': full_table_name,
+                    'hash_columns': [col['name'] for col in hash_columns],
+                    'hash_expression': hash_expr[:100] + '...' if len(hash_expr) > 100 else hash_expr
+                })
+                results['tables_processed'] += 1
+                
+            except Exception as table_error:
+                results['errors'].append({
+                    'table': full_table_name,
+                    'error': str(table_error)
+                })
+        
+        return results
+        
+    except Exception as e:
+        return {
+            'error': f"Fatal error: {str(e)}",
+            'database': target_database
+        }
+$$;
+-- =============================================================================
+-- USAGE AND TESTING
+-- =============================================================================
+
+-- Use the stored procedure to update all tables
+CALL UPDATE_ROW_HASH_SIMPLE('DB_FF_DEMO');
+
+-- Check results
+SELECT 
+    TABLE_SCHEMA,
+    TABLE_NAME,
+    COUNT(*) as TOTAL_ROWS,
+    COUNT(CASE WHEN ROW_HASH IS NOT NULL THEN 1 END) as ROWS_WITH_HASH,
+    COUNT(CASE WHEN DATETIME_UPDATED IS NOT NULL THEN 1 END) as ROWS_WITH_TIMESTAMP
+FROM (
+    SELECT 'CORE' as TABLE_SCHEMA, 'CUSTOMERS' as TABLE_NAME, ROW_HASH, DATETIME_UPDATED FROM CORE.CUSTOMERS
+    UNION ALL
+    SELECT 'PAYMENTS', 'TRANSACTIONS', ROW_HASH, DATETIME_UPDATED FROM PAYMENTS.TRANSACTIONS
+    UNION ALL
+    SELECT 'CARDS', 'CARD_TRANSACTIONS', ROW_HASH, DATETIME_UPDATED FROM CARDS.CARD_TRANSACTIONS
+    -- Add other tables as needed
+) combined
+GROUP BY TABLE_SCHEMA, TABLE_NAME
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
+
+-- Sample hash values
+SELECT 
+    'CORE.CUSTOMERS' as TABLE_NAME,
+    CUSTOMER_ID,
+    LEFT(ROW_HASH, 16) || '...' as HASH_PREVIEW,
+    DATETIME_UPDATED
+FROM CORE.CUSTOMERS 
+LIMIT 5;
+
+
+select * from information_schema.procedures
+limit 10;
