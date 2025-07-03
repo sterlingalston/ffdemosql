@@ -1,0 +1,210 @@
+-- =============================================================================
+-- Fiserv-Style Demo Financial Services Database - Sample Data Inserts
+-- INSERT statements with realistic fake data for testing and demonstration
+-- =============================================================================
+
+-- =============================================================================
+-- CORE SCHEMA - BASE DATA
+-- =============================================================================
+
+-- Financial Institutions
+INSERT INTO CORE.FINANCIAL_INSTITUTIONS 
+(INSTITUTION_CODE, INSTITUTION_NAME, INSTITUTION_TYPE, ROUTING_NUMBER, SWIFT_CODE, ADDRESS, CITY, STATE, ZIP_CODE, COUNTRY, REGULATION_LEVEL, ASSETS_UNDER_MANAGEMENT, CUSTOMER_COUNT, PLATFORM_ONBOARD_DATE, STATUS)
+VALUES 
+('FCNB001', 'First Community National Bank', 'Community Bank', '102900645', 'FCNBUS33', '847 Main Street', 'Denver', 'Colorado', '80202', 'USA', 'FDIC', 2500000000.00, 45000, '2020-01-15', 'Active'),
+('STCU002', 'State Teachers Credit Union', 'Credit Union', '307086691', 'STCUUS44', '1789 Education Blvd', 'Austin', 'Texas', '73301', 'USA', 'NCUA', 1800000000.00, 78000, '2019-03-22', 'Active'),
+('METB003', 'Metropolitan Business Bank', 'Commercial Bank', '071923909', 'METBUS55', '2056 Corporate Center', 'Chicago', 'Illinois', '60601', 'USA', 'OCC', 12000000000.00, 25000, '2021-06-10', 'Active'),
+('COMM004', 'Community First Bank', 'Community Bank', '125008547', 'COMMIS66', '4103 Small Town Ave', 'Portland', 'Oregon', '97201', 'USA', 'FDIC', 850000000.00, 32000, '2018-11-08', 'Active'),
+('REGS005', 'Regional Savings Bank', 'Savings Bank', '053207766', 'REGSUS77', '3672 Thrift Street', 'Atlanta', 'Georgia', '30301', 'USA', 'FDIC', 3200000000.00, 89000, '2017-09-14', 'Active');
+
+-- Product Types
+INSERT INTO CORE.PRODUCT_TYPES 
+(PRODUCT_CODE, PRODUCT_NAME, PRODUCT_CATEGORY, INTEREST_RATE, MINIMUM_BALANCE, MONTHLY_FEE, OVERDRAFT_FEE, IS_ACTIVE)
+VALUES 
+('CHK001', 'Basic Checking', 'Checking', 0.0100, 25.00, 8.95, 35.00, 1),
+('CHK002', 'Premium Checking', 'Checking', 0.0250, 1000.00, 0.00, 35.00, 1),
+('SAV001', 'Regular Savings', 'Savings', 0.0350, 100.00, 5.00, NULL, 1),
+('SAV002', 'High Yield Savings', 'Savings', 0.0425, 2500.00, 0.00, NULL, 1),
+('CD001', 'Certificate of Deposit 12M', 'Certificate', 0.0450, 1000.00, 0.00, NULL, 1),
+('LOC001', 'Personal Line of Credit', 'Credit', 0.0899, 0.00, 0.00, NULL, 1),
+('BIZ001', 'Business Checking', 'Business', 0.0150, 500.00, 15.00, 45.00, 1),
+('MMT001', 'Money Market', 'Savings', 0.0375, 2500.00, 10.00, NULL, 1);
+
+-- Customers
+INSERT INTO CORE.CUSTOMERS 
+(INSTITUTION_ID, CUSTOMER_NUMBER, CUSTOMER_TYPE, FIRST_NAME, LAST_NAME, BUSINESS_NAME, DATE_OF_BIRTH, SSN_ENCRYPTED, EMAIL, PHONE, ADDRESS, CITY, STATE, ZIP_CODE, CREDIT_SCORE, RISK_RATING, KYC_STATUS, CUSTOMER_SINCE, LAST_LOGIN_DATE, STATUS)
+VALUES 
+(1, 'CUST004729', 'Personal', 'John', 'Smith', NULL, '1985-03-15', 0x4A6F686E536D697468535354, 'john.smith@email.com', '555-847-9203', '2847 Oak Street', 'Denver', 'Colorado', '80203', 720, 'Low', 'Approved', '2021-02-01', '2025-07-02', 'Active'),
+(1, 'CUST008156', 'Personal', 'Sarah', 'Johnson', NULL, '1990-07-22', 0x5361726168536D697468535354, 'sarah.johnson@email.com', '555-903-4786', '1056 Pine Avenue', 'Denver', 'Colorado', '80204', 680, 'Medium', 'Approved', '2021-03-15', '2025-07-01', 'Active'),
+(1, 'CUST009847', 'Business', NULL, NULL, 'Tech Solutions LLC', NULL, 0x546563685365727669636553535455, 'accounting@techsolutions.com', '555-761-8492', '3809 Innovation Drive', 'Denver', 'Colorado', '80205', 750, 'Low', 'Approved', '2021-05-10', '2025-06-30', 'Active'),
+(2, 'CUST007203', 'Personal', 'Michael', 'Brown', NULL, '1988-12-03', 0x4D696368617527536D697468535354, 'michael.brown@email.com', '555-492-8765', '7291 Elm Street', 'Austin', 'Texas', '73302', 695, 'Medium', 'Approved', '2020-08-20', '2025-07-02', 'Active'),
+(2, 'CUST005918', 'Personal', 'Emily', 'Davis', NULL, '1992-04-18', 0x456D696C79446176697353535448, 'emily.davis@email.com', '555-316-7042', '4907 Maple Road', 'Austin', 'Texas', '73303', 740, 'Low', 'Approved', '2020-11-12', '2025-07-01', 'Active'),
+(3, 'CUST003746', 'Business', NULL, NULL, 'Manufacturing Corp', NULL, 0x4D616E75666163747572696E67313233, 'finance@mfgcorp.com', '555-658-2041', '8037 Industrial Blvd', 'Chicago', 'Illinois', '60602', 780, 'Low', 'Approved', '2022-01-05', '2025-06-28', 'Active'),
+(4, 'CUST006192', 'Personal', 'David', 'Wilson', NULL, '1983-09-25', 0x446176696457696C736F6E535354, 'david.wilson@email.com', '555-284-9765', '5073 Cedar Lane', 'Portland', 'Oregon', '97202', 665, 'Medium', 'Approved', '2019-05-30', '2025-07-01', 'Active'),
+(5, 'CUST002853', 'Personal', 'Lisa', 'Anderson', NULL, '1987-11-14', 0x4C697361416E646572736F6E535354, 'lisa.anderson@email.com', '555-729-4603', '6192 Birch Street', 'Atlanta', 'Georgia', '30302', 710, 'Low', 'Approved', '2018-02-14', '2025-07-02', 'Active');
+
+-- Accounts
+INSERT INTO CORE.ACCOUNTS 
+(INSTITUTION_ID, CUSTOMER_ID, PRODUCT_TYPE_ID, ACCOUNT_NUMBER, ACCOUNT_NAME, CURRENT_BALANCE, AVAILABLE_BALANCE, PENDING_BALANCE, OVERDRAFT_LIMIT, INTEREST_RATE, OPEN_DATE, LAST_TRANSACTION_DATE, STATUS)
+VALUES 
+(1, 1, 1, '1009472851', 'John Smith - Basic Checking', 2547.89, 2547.89, 0.00, 500.00, 0.0100, '2021-02-01', '2025-07-02', 'Active'),
+(1, 1, 3, '1006948273', 'John Smith - Regular Savings', 15420.33, 15420.33, 0.00, 0.00, 0.0350, '2021-02-15', '2025-06-28', 'Active'),
+(1, 2, 2, '1008156492', 'Sarah Johnson - Premium Checking', 8763.21, 8563.21, 200.00, 1000.00, 0.0250, '2021-03-15', '2025-07-01', 'Active'),
+(1, 3, 7, '1007638195', 'Tech Solutions LLC - Business Checking', 45678.92, 44378.92, 1300.00, 2500.00, 0.0150, '2021-05-10', '2025-07-02', 'Active'),
+(2, 4, 1, '2007203846', 'Michael Brown - Basic Checking', 3789.56, 3789.56, 0.00, 300.00, 0.0100, '2020-08-20', '2025-07-01', 'Active'),
+(2, 5, 4, '2005918374', 'Emily Davis - High Yield Savings', 25689.47, 25689.47, 0.00, 0.00, 0.0425, '2020-11-12', '2025-06-30', 'Active'),
+(3, 6, 7, '3003746582', 'Manufacturing Corp - Business Checking', 156742.88, 155242.88, 1500.00, 10000.00, 0.0150, '2022-01-05', '2025-07-02', 'Active'),
+(4, 7, 1, '4006192847', 'David Wilson - Basic Checking', 5926.78, 5926.78, 0.00, 500.00, 0.0100, '2019-05-30', '2025-06-29', 'Active'),
+(5, 8, 8, '5002853941', 'Lisa Anderson - Money Market', 18463.67, 18463.67, 0.00, 0.00, 0.0375, '2018-02-14', '2025-07-01', 'Active');
+
+-- =============================================================================
+-- PAYMENTS SCHEMA
+-- =============================================================================
+
+-- Payment Networks
+INSERT INTO PAYMENTS.PAYMENT_NETWORKS 
+(NETWORK_CODE, NETWORK_NAME, NETWORK_TYPE, PROCESSING_FEE, SETTLEMENT_TIME, MAX_TRANSACTION_AMOUNT, IS_ACTIVE)
+VALUES 
+('ACH', 'Automated Clearing House', 'Bank Transfer', 0.25, '1-3 Business Days', 1000000.00, 1),
+('WIRE', 'Wire Transfer Network', 'Wire Transfer', 25.00, 'Same Day', 10000000.00, 1),
+('RTP', 'Real Time Payments', 'Instant Transfer', 0.50, 'Real Time', 100000.00, 1),
+('ZELLE', 'Zelle Network', 'P2P Transfer', 0.00, 'Real Time', 5000.00, 1),
+('FEDWIRE', 'Federal Wire Network', 'Federal Wire', 30.00, 'Same Day', 50000000.00, 1);
+
+-- Transactions
+INSERT INTO PAYMENTS.TRANSACTIONS 
+(INSTITUTION_ID, NETWORK_ID, TRANSACTION_NUMBER, PAYMENT_TYPE, DEBIT_ACCOUNT_ID, CREDIT_ACCOUNT_ID, EXTERNAL_ACCOUNT_NUMBER, EXTERNAL_ROUTING_NUMBER, EXTERNAL_BANK_NAME, AMOUNT, CURRENCY, TRANSACTION_DATE, EFFECTIVE_DATE, SETTLEMENT_DATE, STATUS, DESCRIPTION, REFERENCE, PROCESSING_FEE, RISK_SCORE, FRAUD_FLAG, COMPLIANCE_FLAG)
+VALUES 
+(1, 1, 'TXN20250701847', 'ACH Credit', 1, NULL, '8472639510', '087465129', 'External Bank', 500.00, 'USD', '2025-07-01 10:30:00', '2025-07-01', '2025-07-02', 'Completed', 'Payroll Deposit', 'PR20250701847', 0.25, 15, 0, 0),
+(1, 3, 'TXN20250701926', 'RTP Credit', NULL, 2, '7395168420', '205847316', 'Quick Bank', 125.50, 'USD', '2025-07-01 14:22:00', '2025-07-01', '2025-07-01', 'Completed', 'Zelle Transfer', 'ZL20250701926', 0.50, 8, 0, 0),
+(1, 1, 'TXN20250702159', 'ACH Debit', 4, NULL, '5629847310', '495827163', 'Vendor Bank', 1850.00, 'USD', '2025-07-02 09:15:00', '2025-07-02', '2025-07-03', 'Pending', 'Supplier Payment', 'SP20250702159', 0.25, 22, 0, 0),
+(2, 4, 'TXN20250701603', 'P2P Transfer', 5, NULL, NULL, NULL, NULL, 75.00, 'USD', '2025-07-01 16:45:00', '2025-07-01', '2025-07-01', 'Completed', 'Split Dinner Bill', 'ZL20250701603', 0.00, 5, 0, 0),
+(3, 2, 'TXN20250702738', 'Wire Transfer', 7, NULL, '9372048615', '374196520', 'International Bank', 25000.00, 'USD', '2025-07-02 11:20:00', '2025-07-02', '2025-07-02', 'Completed', 'Equipment Purchase', 'WR20250702738', 25.00, 35, 0, 0);
+
+-- =============================================================================
+-- CARDS SCHEMA
+-- =============================================================================
+
+-- Card Programs
+INSERT INTO CARDS.CARD_PROGRAMS 
+(PROGRAM_CODE, PROGRAM_NAME, CARD_TYPE, CARD_NETWORK, BIN, ANNUAL_FEE, INTEREST_RATE, CASH_ADVANCE_FEE, FOREIGN_TRANSACTION_FEE, REWARDS_PROGRAM, IS_ACTIVE)
+VALUES 
+('VISA_BASIC', 'Basic Visa Debit', 'Debit', 'Visa', '470583', 0.00, NULL, 3.00, 2.50, NULL, 1),
+('MC_REWARDS', 'Rewards MasterCard Credit', 'Credit', 'MasterCard', '529461', 95.00, 18.99, 3.50, 2.75, 'Cash Back 1.5%', 1),
+('VISA_BUSINESS', 'Business Visa Credit', 'Credit', 'Visa', '463729', 150.00, 16.99, 4.00, 0.00, 'Business Rewards', 1),
+('MC_DEBIT', 'MasterCard Debit', 'Debit', 'MasterCard', '547382', 0.00, NULL, 2.50, 2.00, NULL, 1),
+('AMEX_PREMIUM', 'Premium American Express', 'Credit', 'American Express', '374619', 450.00, 19.99, 5.00, 0.00, 'Travel Rewards', 1);
+
+-- Card Accounts
+INSERT INTO CARDS.CARD_ACCOUNTS 
+(INSTITUTION_ID, CUSTOMER_ID, PROGRAM_ID, LINKED_ACCOUNT_ID, CARD_NUMBER_ENCRYPTED, CARD_NUMBER_MASKED, EXPIRATION_DATE, CVV_ENCRYPTED, CARD_HOLDER_NAME, CREDIT_LIMIT, AVAILABLE_CREDIT, CURRENT_BALANCE, MINIMUM_PAYMENT, LAST_PAYMENT_DATE, NEXT_PAYMENT_DUE, STATUS, ISSUE_DATE, ACTIVATION_DATE)
+VALUES 
+(1, 1, 1, 1, 0x470583294761583947294750, '****-****-****-2947', '12/27', 0x383936, 'JOHN SMITH', NULL, NULL, 0.00, 0.00, NULL, NULL, 'Active', '2021-02-01', '2021-02-05'),
+(1, 2, 2, 3, 0x529461738294617385294610, '****-****-****-8294', '08/26', 0x373832, 'SARAH JOHNSON', 5000.00, 4235.67, 764.33, 25.00, '2025-06-15', '2025-07-15', 'Active', '2021-03-20', '2021-03-25'),
+(1, 3, 3, 4, 0x463729584736295847362950, '****-****-****-5847', '03/28', 0x393835, 'TECH SOLUTIONS LLC', 25000.00, 22456.78, 2543.22, 50.00, '2025-06-20', '2025-07-20', 'Active', '2021-05-15', '2021-05-18'),
+(2, 4, 4, 5, 0x547382619473826194738260, '****-****-****-6194', '11/26', 0x393037, 'MICHAEL BROWN', NULL, NULL, 0.00, 0.00, NULL, NULL, 'Active', '2020-09-01', '2020-09-03'),
+(3, 6, 3, 7, 0x463729584736295847362951, '****-****-****-5848', '05/27', 0x343839, 'MANUFACTURING CORP', 100000.00, 87654.32, 12345.68, 300.00, '2025-06-25', '2025-07-25', 'Active', '2022-01-10', '2022-01-12');
+
+-- Card Transactions
+INSERT INTO CARDS.CARD_TRANSACTIONS 
+(CARD_ACCOUNT_ID, TRANSACTION_TYPE, AMOUNT, CURRENCY, MERCHANT_NAME, MERCHANT_CATEGORY, MERCHANT_ID, TRANSACTION_DATE, POSTING_DATE, AUTHORIZATION_CODE, NETWORK_TRANSACTION_ID, STATUS, LOCATION, COUNTRY, RISK_SCORE, FRAUD_FLAG, REWARDS_EARNED)
+VALUES 
+(1, 'Purchase', 67.89, 'USD', 'WHOLE FOODS MARKET', 'Grocery', 'WFM847291', '2025-07-02 18:30:00', '2025-07-02', 'AUTH847291', 'VIS20250702847', 'Posted', 'Denver, CO', 'USA', 10, 0, 0.00),
+(2, 'Purchase', 156.78, 'USD', 'AMAZON.COM', 'Online Retail', 'AMZ629473', '2025-07-01 14:22:00', '2025-07-02', 'AUTH629473', 'MC20250701629', 'Posted', 'Online', 'USA', 15, 0, 2.35),
+(2, 'Payment', -200.00, 'USD', 'ONLINE PAYMENT', 'Payment', 'PAY847361', '2025-06-15 10:00:00', '2025-06-15', NULL, NULL, 'Posted', 'Online', 'USA', 0, 0, 0.00),
+(3, 'Purchase', 2500.00, 'USD', 'OFFICE DEPOT', 'Office Supplies', 'OD847392', '2025-07-01 11:45:00', '2025-07-02', 'AUTH847392', 'VIS20250701847', 'Posted', 'Chicago, IL', 'USA', 25, 0, 50.00),
+(4, 'Purchase', 45.67, 'USD', 'SHELL GAS STATION', 'Gas Station', 'SHL739284', '2025-07-01 08:15:00', '2025-07-01', 'AUTH739284', 'MC20250701739', 'Posted', 'Austin, TX', 'USA', 8, 0, 0.00);
+
+-- =============================================================================
+-- DIGITAL SCHEMA
+-- =============================================================================
+
+-- Digital Users
+INSERT INTO DIGITAL.DIGITAL_USERS 
+(CUSTOMER_ID, USERNAME, PASSWORD_HASH, EMAIL, MOBILE_PHONE, LAST_LOGIN_DATE, LOGIN_ATTEMPTS, IS_LOCKED, TWO_FACTOR_ENABLED, PREFERRED_NOTIFICATION_METHOD, STATUS)
+VALUES 
+(1, 'jsmith_2025', 0x4A6F686E536D697468486173684A6F686E536D697468, 'john.smith@email.com', '555-847-9203', '2025-07-02 09:30:00', 0, 0, 1, 'SMS', 'Active'),
+(2, 'sarahj_banking', 0x5361726168416368486173685361726168, 'sarah.johnson@email.com', '555-903-4786', '2025-07-01 15:22:00', 0, 0, 1, 'Email', 'Active'),
+(3, 'techsolutions_admin', 0x546563684164486173685465636841, 'accounting@techsolutions.com', '555-761-8492', '2025-06-30 11:45:00', 0, 0, 1, 'Email', 'Active'),
+(4, 'mbrown_banking', 0x4D696368426175486173684D6963686165, 'michael.brown@email.com', '555-492-8765', '2025-07-02 07:15:00', 0, 0, 0, 'Email', 'Active'),
+(6, 'mfgcorp_finance', 0x4D616E756661637475726572486173684D, 'finance@mfgcorp.com', '555-658-2041', '2025-06-28 16:30:00', 0, 0, 1, 'SMS', 'Active');
+
+-- User Sessions
+INSERT INTO DIGITAL.USER_SESSIONS 
+(USER_ID, SESSION_TOKEN, DEVICE_TYPE, DEVICE_ID, IP_ADDRESS, USER_AGENT, START_TIME, LAST_ACTIVITY, END_TIME, STATUS)
+VALUES 
+(1, 'sess_jsmith_20250702_847291_fb8e72', 'Mobile', 'iPhone_12_Pro_FB8E72', '192.168.1.100', 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6)', '2025-07-02 09:30:00', '2025-07-02 09:45:00', NULL, 'Active'),
+(2, 'sess_sarahj_20250701_629473_a9d3c5', 'Desktop', 'Chrome_Windows_A9D3C5', '192.168.1.101', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', '2025-07-01 15:22:00', '2025-07-01 15:45:00', '2025-07-01 15:45:00', 'Ended'),
+(3, 'sess_tech_20250630_847392_c7f2b8', 'Desktop', 'Firefox_Mac_C7F2B8', '192.168.1.102', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15)', '2025-06-30 11:45:00', '2025-06-30 12:15:00', '2025-06-30 12:15:00', 'Ended'),
+(4, 'sess_mbrown_20250702_739284_e6a1d9', 'Tablet', 'iPad_Air_E6A1D9', '192.168.1.103', 'Mozilla/5.0 (iPad; CPU OS 14_6)', '2025-07-02 07:15:00', '2025-07-02 07:30:00', NULL, 'Active');
+
+-- Bill Pay Payees
+INSERT INTO DIGITAL.BILL_PAY_PAYEES 
+(CUSTOMER_ID, PAYEE_NAME, PAYEE_TYPE, ACCOUNT_NUMBER, ADDRESS, CITY, STATE, ZIP_CODE, PHONE, IS_ACTIVE)
+VALUES 
+(1, 'Denver Electric Company', 'Utility', '847293610', '2950 Power Street', 'Denver', 'Colorado', '80201', '555-847-2936', 1),
+(1, 'Mountain View Mortgage', 'Loan', '739284517', '1506 Lending Lane', 'Denver', 'Colorado', '80203', '555-739-2845', 1),
+(2, 'Austin Water Utility', 'Utility', '629473851', '3760 Water Works Dr', 'Austin', 'Texas', '73301', '555-629-4738', 1),
+(3, 'Office Supply Express', 'Vendor', 'VENDOR847293', '4180 Business Park', 'Denver', 'Colorado', '80204', '555-418-7293', 1),
+(6, 'Industrial Equipment Co', 'Vendor', 'VENDOR629471', '5920 Manufacturing Ave', 'Chicago', 'Illinois', '60603', '555-592-9471', 1);
+
+-- =============================================================================
+-- RISK SCHEMA
+-- =============================================================================
+
+-- Risk Rules
+INSERT INTO RISK.RISK_RULES 
+(RULE_NAME, RULE_TYPE, RULE_DESCRIPTION, RISK_SCORE, SEVERITY, IS_ACTIVE)
+VALUES 
+('Large Transaction Alert', 'Transaction', 'Alerts on transactions over $10,000', 30, 'Medium', 1),
+('Unusual Location', 'Card', 'Card used in unusual geographic location', 50, 'High', 1),
+('Multiple Failed Logins', 'Authentication', 'Multiple failed login attempts detected', 40, 'High', 1),
+('Velocity Check', 'Transaction', 'Too many transactions in short time period', 35, 'Medium', 1),
+('International Wire', 'Wire', 'International wire transfer requires review', 45, 'High', 1),
+('Account Takeover Pattern', 'Fraud', 'Pattern suggests potential account takeover', 80, 'Critical', 1);
+
+-- Risk Events
+INSERT INTO RISK.RISK_EVENTS 
+(RULE_ID, INSTITUTION_ID, CUSTOMER_ID, ACCOUNT_ID, TRANSACTION_ID, EVENT_TYPE, EVENT_DESCRIPTION, RISK_SCORE, SEVERITY, STATUS, ASSIGNED_TO, EVENT_DATE)
+VALUES 
+(1, 3, 6, 7, 5, 'Transaction Alert', 'Wire transfer of $25,000 exceeds normal pattern', 30, 'Medium', 'Resolved', 'risk.analyst@institution.com', '2025-07-02 11:25:00'),
+(4, 1, 2, 3, NULL, 'Velocity Alert', 'Customer made 5 transactions within 1 hour', 35, 'Medium', 'Open', 'risk.team@institution.com', '2025-07-01 16:30:00'),
+(3, 1, 1, NULL, NULL, 'Authentication Alert', '3 failed login attempts in 10 minutes', 40, 'High', 'Resolved', 'security@institution.com', '2025-07-02 09:00:00');
+
+-- =============================================================================
+-- COMPLIANCE SCHEMA
+-- =============================================================================
+
+-- Regulatory Reports
+INSERT INTO COMPLIANCE.REGULATORY_REPORTS 
+(INSTITUTION_ID, REPORT_TYPE, REPORTING_PERIOD, REGULATOR_ID, STATUS, DUE_DATE, FILE_PATH)
+VALUES 
+(1, 'Call Report', 'Q2 2025', 'FDIC', 'Submitted', '2025-07-30', '/reports/fdic/call_report_q2_2025.pdf'),
+(2, 'NCUA 5300', 'Q2 2025', 'NCUA', 'Draft', '2025-07-30', '/reports/ncua/5300_q2_2025_draft.pdf'),
+(3, 'BSA/AML Report', 'Q2 2025', 'FinCEN', 'In Progress', '2025-08-15', NULL),
+(1, 'CRA Report', 'Annual 2024', 'FDIC', 'Submitted', '2025-03-31', '/reports/fdic/cra_annual_2024.pdf');
+
+-- Sanctions Screening
+INSERT INTO COMPLIANCE.SANCTIONS_SCREENING 
+(CUSTOMER_ID, TRANSACTION_ID, ENTITY_NAME, SCREENING_TYPE, MATCH_TYPE, MATCH_SCORE, LIST_NAME, STATUS, REVIEW_NOTES, SCREENING_DATE, REVIEWED_BY, REVIEWED_DATE)
+VALUES 
+(1, 1, 'JOHN SMITH', 'Customer Onboarding', 'Name Match', 15.50, 'OFAC SDN List', 'Cleared', 'Common name, no match after manual review', '2021-02-01 10:00:00', 'compliance.officer@bank.com', '2021-02-01 14:30:00'),
+(6, 5, 'MANUFACTURING CORP', 'Transaction', 'Name Match', 8.25, 'OFAC SDN List', 'Cleared', 'Generic business name, cleared after review', '2025-07-02 11:25:00', 'compliance.team@bank.com', '2025-07-02 13:15:00'),
+(NULL, 2, 'QUICK BANK', 'Transaction', 'Entity Match', 3.75, 'OFAC Non-SDN List', 'Cleared', 'Bank name partial match, cleared as legitimate institution', '2025-07-01 14:25:00', 'compliance.analyst@bank.com', '2025-07-01 15:00:00');
+
+-- =============================================================================
+-- ANALYTICS SCHEMA
+-- =============================================================================
+
+-- Daily Metrics
+INSERT INTO ANALYTICS.DAILY_METRICS 
+(INSTITUTION_ID, METRIC_DATE, TOTAL_TRANSACTIONS, TOTAL_TRANSACTION_VOLUME, TOTAL_CUSTOMERS, NEW_CUSTOMERS, ACTIVE_DIGITAL_USERS, TOTAL_DEPOSITS, TOTAL_LOANS, FRAUD_DETECTED_COUNT, FRAUD_LOSS_AMOUNT, COMPLIANCE_ALERTS, SYSTEM_UPTIME)
+VALUES 
+(1, '2025-07-01', 1847, 2847629.50, 45126, 15, 12847, 125000000.00, 89000000.00, 3, 1850.00, 8, 99.95),
+(1, '2025-07-02', 1926, 2962847.25, 45141, 8, 13029, 125250000.00, 89100000.00, 2, 950.00, 12, 99.98),
+(2, '2025-07-01', 2496, 4739285.75, 78247, 25, 23705, 180000000.00, 145000000.00, 5, 2950.00, 15, 99.92),
+(2, '2025-07-02', 2639, 4962847.50, 78272, 12, 24179, 180500000.00, 145200000.00, 4, 2150.00, 18, 99.97),
+(3, '2025-07-01', 856, 15847629.25, 25070, 3, 8947, 1200000000.00, 850000000.00, 1, 750.00, 5, 99.99),
+(3, '2025-07-02', 912, 16472851.80, 25073, 2, 9185, 1205000000.00, 852000000.00, 2, 1850.00, 7, 99.96),
+(4, '2025-07-01', 645, 1847629.90, 32159, 8, 7923, 85000000.00, 65000000.00, 1, 450.00, 3, 99.94),
+(5, '2025-07-01', 1789, 3629471.15, 89247, 22, 18639, 320000000.00, 245000000.00, 3, 1350.00, 11, 99.93);
